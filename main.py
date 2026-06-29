@@ -18,7 +18,7 @@ client = OpenAI(
 MODEL = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
 
 class ChatSession:
-    def __init__(self, mode="general"):
+    def __init__(self, mode="general", max_history_turns=10):
         self.mode = mode
         self.messages = [
             {"role": "system", "content": get_system_prompt(mode)}
@@ -26,10 +26,14 @@ class ChatSession:
         self.total_tokens = 0
         self.turn_count = 0
         self.cost_tracker = CostTracker()
+        self.max_history_turns = max_history_turns
     
     def chat(self, user_input):
         self.messages.append({"role": "user", "content": user_input})
-        
+
+        # Apply sliding window before sending to API
+        trimmed = self._apply_sliding_window()
+
         try:
             response = client.chat.completions.create(
                 model=MODEL,
@@ -94,6 +98,7 @@ class ChatSession:
         ]
         self.total_tokens = 0
         self.turn_count = 0
+        self.cost_tracker = CostTracker() # reset cost tracker
     
     def get_stats(self):
         return {
@@ -104,6 +109,21 @@ class ChatSession:
             "est_cost": f"${self.total_tokens * 0.000003:.6f}",
         }
 
+    def _apply_sliding_window(self):
+        """Keep system prompt + last N turn pairs (max_history_turns * 2 messages)."""
+        if self.max_history_turns is None:
+            return  # unlimited (for testing/comparison)
+        
+        max_messages = 1 + (self.max_history_turns * 2)  # system + N user/assistant pairs
+        
+        if len(self.messages) > max_messages:
+            # Keep system message (index 0) + last N turn pairs
+            system = self.messages[0]
+            recent = self.messages[-(self.max_history_turns * 2):]
+            trimmed_count = len(self.messages) - max_messages
+            self.messages = [system] + recent
+            return trimmed_count
+        return 0
 
 def print_header():
     print("\n" + "=" * 55)
@@ -120,6 +140,7 @@ def print_help():
     print("  /save [name]    Save conversation to file")
     print("  /load <name>    Load a saved conversation")
     print("  /history        List saved conversations")
+    print("  /window <n>     Set sliding window size (or 'off' for unlimited)")
     print("  /help           Show this help")
     print("  /quit           Exit")
     print()
@@ -184,6 +205,7 @@ def main():
                         print(f"  {model_short}: {stats['calls']} calls, "
                             f"{stats['input_tokens'] + stats['output_tokens']} tok, "
                             f"${stats['cost']:.6f}")
+                print(f"  Window:         {session.max_history_turns if session.max_history_turns else 'unlimited'} turns")
                 print()
             
             elif cmd[0] == "/reset":
@@ -225,9 +247,29 @@ def main():
                     for c in convos:
                         print(f"    {c['filename']:<30} {c['mode']:<15} {c['turns']} turns, {c['tokens']} tok")
                     print()
+            elif cmd[0] == "/window":
+                if len(cmd) < 2:
+                    current = session.max_history_turns
+                    print(f"\n  Current window: {current if current else 'unlimited'} turns")
+                    print(f"  Usage: /window <number>  (e.g. /window 5)")
+                    print(f"         /window off       (disable, keep all history)\n")
+                elif cmd[1].lower() == "off":
+                    session.max_history_turns = None
+                    print("\n  Sliding window OFF — full history kept (expensive!)\n")
+                else:
+                    try:
+                        n = int(cmd[1])
+                        if n < 1:
+                            print("\n  Window size must be at least 1\n")
+                        else:
+                            session.max_history_turns = n
+                            print(f"\n  Sliding window set to {n} turn pairs\n")
+                    except ValueError:
+                        print(f"\n  Invalid window size: {cmd[1]}\n")
 
             elif cmd[0] == "/help":
                 print_help()
+
             
             else:
                 print(f"\n  Unknown command: {cmd[0]}. Type /help\n")
