@@ -8,6 +8,7 @@ from modes import MODES, get_mode_list, get_system_prompt, get_mode_display_name
 from storage import save_conversation, load_conversation, list_conversations
 from cost_tracker import CostTracker
 from router import get_model_for_question, explain_routing, MODELS
+from prompt_registry import PromptManager
 
 load_dotenv()
 
@@ -19,10 +20,21 @@ client = OpenAI(
 MODEL = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
 
 class ChatSession:
-    def __init__(self, mode="general", max_history_turns=10):
+    def __init__(self, mode="general", max_history_turns=10, prompt_manager=None):
         self.mode = mode
+        self.prompt_manager = prompt_manager or PromptManager()
+
+        # Get prompt from registry instead of modes.py
+        prompt_data = self.prompt_manager.get_prompt(mode)
+        if prompt_data:
+            self.system_prompt = prompt_data["system"]
+            self.prompt_version = prompt_data["version"]
+        else:
+            self.system_prompt = "You are a helpful assistant."
+            self.prompt_version = "default"
+        
         self.messages = [
-            {"role": "system", "content": get_system_prompt(mode)}
+            {"role": "system", "content": self.system_prompt}
         ]
         self.total_tokens = 0
         self.turn_count = 0
@@ -105,17 +117,28 @@ class ChatSession:
     
     def switch_mode(self, new_mode):
         """Switch mode — keeps conversation history but changes system prompt."""
+        prompt_data = self.prompt_manager.get_prompt(new_mode)
+        if not prompt_data:
+            return False
+        
         self.mode = new_mode
+        self.system_prompt = prompt_data["system"]
+        self.prompt_version = prompt_data["version"]
+
         # Replace system prompt (always first message)
         self.messages[0] = {
             "role": "system",
-            "content": get_system_prompt(new_mode)
+            "content": self.system_prompt
         }
+        return True
     
     def reset(self):
         """Clear conversation history."""
+        prompt_data = self.prompt_manager.get_prompt(self.mode)
+        self.system_prompt = prompt_data["system"] if prompt_data else self.system_prompt
+
         self.messages = [
-            {"role": "system", "content": get_system_prompt(self.mode)}
+            {"role": "system", "content": self.system_prompt}
         ]
         self.total_tokens = 0
         self.turn_count = 0
@@ -164,6 +187,8 @@ def print_help():
     print("  /window <n>     Set sliding window size (or 'off' for unlimited)")
     print("  /routing on/off Toggle automatic model selection")
     print("  /explain <q>    Show which model would handle a question")
+    print("  /versions <mode>     Show version history of a mode's prompt")
+    print("  /rollback <mode> <version> Roll back to an older prompt version")
     print("  /help           Show this help")
     print("  /quit           Exit")
     print()
@@ -171,7 +196,8 @@ def print_help():
 def main():
     print_header()
     
-    session = ChatSession(mode="general")
+    prompt_manager = PromptManager()
+    session = ChatSession(mode="general", prompt_manager=prompt_manager)
     
     print(f"\n  Mode: {get_mode_display_name('general')}")
     print("  Type /help for commands\n")
@@ -229,6 +255,7 @@ def main():
                             f"{stats['input_tokens'] + stats['output_tokens']} tok, "
                             f"${stats['cost']:.6f}")
                 print(f"  Window:         {session.max_history_turns if session.max_history_turns else 'unlimited'} turns")
+                print(f"  Mode:           {get_mode_display_name(session.mode)} ({session.prompt_version})")
                 print()
             
             elif cmd[0] == "/reset":
@@ -316,6 +343,41 @@ def main():
                     print(f"  Would use: {info['model_name']}")
                     print(f"  Reason:    {info['reason']}\n")
 
+            elif cmd[0] == "/versions":
+                if len(cmd) < 2:
+                    print(f"\n  Usage: /versions <mode>")
+                    print(f"  Available modes: {', '.join(MODES.keys())}\n")
+                else:
+                    mode = cmd[1]
+                    versions = session.prompt_manager.list_versions(mode)
+                    if not versions:
+                        print(f"\n  Unknown mode: {mode}\n")
+                    else:
+                        print(f"\n  === Versions for '{mode}' ===")
+                        for v in versions:
+                            marker = "→" if v["is_current"] else " "
+                            print(f"  {marker} {v['version']} ({v['created']}): {v['notes']}")
+                        print()
+
+            elif cmd[0] == "/rollback":
+                if len(cmd) < 3:
+                    print(f"\n  Usage: /rollback <mode> <version>")
+                    print(f"  Example: /rollback ruby v1.0\n")
+                else:
+                    mode = cmd[1]
+                    version = cmd[2]
+                    success = session.prompt_manager.set_active_version(mode, version)
+                    if success:
+                        print(f"\n  Rolled back '{mode}' to {version}")
+                        # If currently in this mode, reload the prompt
+                        if session.mode == mode:
+                            session.switch_mode(mode)
+                            print(f"  (Current session updated to use {version})\n")
+                        else:
+                            print()
+                    else:
+                        print(f"\n  Failed: invalid mode or version\n")
+            
             elif cmd[0] == "/help":
                 print_help()
 

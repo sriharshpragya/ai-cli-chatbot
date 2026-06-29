@@ -5,22 +5,22 @@
 # Available models with their strengths
 MODELS = {
     "fast": {
-        "name": "google/gemma-3-27b-it:free",
-        "display": "Gemma (fast)",
+        "name": "openai/gpt-4o-mini",
+        "display": "GPT-4o Mini (fast)",
         "strengths": ["simple facts", "definitions", "quick answers"],
-        "cost_per_1k_tokens": 0.0,  # free
+        "cost_per_1k_tokens": 0.0,
     },
     "reasoning": {
         "name": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
         "display": "Nemotron (reasoning)",
         "strengths": ["math", "logic", "analysis", "multi-step"],
-        "cost_per_1k_tokens": 0.0,  # free
+        "cost_per_1k_tokens": 0.0,
     },
     "balanced": {
-        "name": "deepseek/deepseek-v4-flash:free",
-        "display": "DeepSeek (balanced)",
+        "name": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+        "display": "Nemotron (balanced)",
         "strengths": ["code", "general purpose"],
-        "cost_per_1k_tokens": 0.0,  # free (when not rate limited)
+        "cost_per_1k_tokens": 0.0,
     },
 }
 
