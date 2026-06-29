@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 import os
 from modes import MODES, get_mode_list, get_system_prompt, get_mode_display_name
 from storage import save_conversation, load_conversation, list_conversations
+from cost_tracker import CostTracker
 
 load_dotenv()
 
@@ -24,6 +25,7 @@ class ChatSession:
         ]
         self.total_tokens = 0
         self.turn_count = 0
+        self.cost_tracker = CostTracker()
     
     def chat(self, user_input):
         self.messages.append({"role": "user", "content": user_input})
@@ -36,33 +38,42 @@ class ChatSession:
             )
             
             content = response.choices[0].message.content
-            tokens = response.usage.total_tokens if response.usage else 0
+            prompt_tokens = response.usage.prompt_tokens if response.usage else 0
+            completion_tokens = response.usage.completion_tokens if response.usage else 0
             finish = response.choices[0].finish_reason
             
             if content:
                 self.messages.append({"role": "assistant", "content": content})
-                self.total_tokens += tokens
                 self.turn_count += 1
+                
+                # Log to cost tracker
+                call_log = self.cost_tracker.log_call(
+                    model=MODEL,
+                    prompt_tokens=prompt_tokens,
+                    completion_tokens=completion_tokens,
+                    finish_reason=finish,
+                    operation=f"chat_{self.mode}"
+                )
+                
+                return {
+                    "content": content,
+                    "display": self.cost_tracker.format_call_display(call_log),
+                    "turns": self.turn_count,
+                    "history_size": len(self.messages),
+                }
             else:
                 self.messages.pop()
-                content = "(no response — try again)"
-            
-            return {
-                "content": content,
-                "tokens": tokens,
-                "finish_reason": finish,
-                "total_tokens": self.total_tokens,
-                "turns": self.turn_count,
-                "history_size": len(self.messages),
-            }
-        
+                return {
+                    "content": "(no response — try again)",
+                    "display": "   [0 tok | failed]",
+                    "turns": self.turn_count,
+                    "history_size": len(self.messages),
+                }
         except Exception as e:
             self.messages.pop()
             return {
                 "content": f"Error: {e}",
-                "tokens": 0,
-                "finish_reason": "error",
-                "total_tokens": self.total_tokens,
+                "display": "   [0 tok | error]",
                 "turns": self.turn_count,
                 "history_size": len(self.messages),
             }
@@ -154,12 +165,26 @@ def main():
                     print(f"  Available: {', '.join(MODES.keys())}\n")
             
             elif cmd[0] == "/stats":
-                stats = session.get_stats()
-                print(f"\n  Mode:     {stats['mode']}")
-                print(f"  Turns:    {stats['turns']}")
-                print(f"  Tokens:   {stats['total_tokens']}")
-                print(f"  Messages: {stats['messages_in_history']}")
-                print(f"  Est cost: {stats['est_cost']}\n")
+                summary = session.cost_tracker.get_summary()
+                breakdown = session.cost_tracker.get_per_model_breakdown()
+                
+                print(f"\n  === Session Stats ===")
+                print(f"  Mode:           {get_mode_display_name(session.mode)}")
+                print(f"  Total calls:    {summary['total_calls']}")
+                print(f"  Input tokens:   {summary['total_input_tokens']:,}")
+                print(f"  Output tokens:  {summary['total_output_tokens']:,}")
+                print(f"  Total tokens:   {summary['total_tokens']:,}")
+                print(f"  Avg per call:   {summary['avg_tokens_per_call']:.0f}")
+                print(f"  Total cost:     ${summary['total_cost_usd']:.6f}")
+                
+                if len(breakdown) > 1:
+                    print(f"\n  === Per-Model Breakdown ===")
+                    for model, stats in breakdown.items():
+                        model_short = model.split("/")[-1][:30]
+                        print(f"  {model_short}: {stats['calls']} calls, "
+                            f"{stats['input_tokens'] + stats['output_tokens']} tok, "
+                            f"${stats['cost']:.6f}")
+                print()
             
             elif cmd[0] == "/reset":
                 session.reset()
@@ -213,7 +238,8 @@ def main():
         result = session.chat(user_input)
         
         print(f"\nAI: {result['content']}")
-        print(f"   [{result['tokens']} tok | {result['finish_reason']} | turn {result['turns']}]\n")
+        print(result['display'])
+        print()
 
 if __name__ == "__main__":
     main()
