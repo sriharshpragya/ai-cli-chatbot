@@ -7,6 +7,7 @@ import os
 from modes import MODES, get_mode_list, get_system_prompt, get_mode_display_name
 from storage import save_conversation, load_conversation, list_conversations
 from cost_tracker import CostTracker
+from router import get_model_for_question, explain_routing, MODELS
 
 load_dotenv()
 
@@ -27,6 +28,8 @@ class ChatSession:
         self.turn_count = 0
         self.cost_tracker = CostTracker()
         self.max_history_turns = max_history_turns
+        self.routing_enabled = True
+        self.last_model_used = None
     
     def chat(self, user_input):
         self.messages.append({"role": "user", "content": user_input})
@@ -34,9 +37,18 @@ class ChatSession:
         # Apply sliding window before sending to API
         trimmed = self._apply_sliding_window()
 
+        # Route to the right model
+        if self.routing_enabled:
+            model_config = get_model_for_question(user_input, self.mode)
+            model_to_use = model_config["name"]
+            self.last_model_used = model_config["display"]
+        else:
+            model_to_use = MODEL  # fall back to default
+            self.last_model_used = MODEL
+
         try:
             response = client.chat.completions.create(
-                model=MODEL,
+                model=model_to_use,
                 max_tokens=500,
                 messages=self.messages
             )
@@ -50,9 +62,9 @@ class ChatSession:
                 self.messages.append({"role": "assistant", "content": content})
                 self.turn_count += 1
                 
-                # Log to cost tracker
+                # Log to cost tracker with the ACTUAL model used
                 call_log = self.cost_tracker.log_call(
-                    model=MODEL,
+                    model=model_to_use,
                     prompt_tokens=prompt_tokens,
                     completion_tokens=completion_tokens,
                     finish_reason=finish,
@@ -61,7 +73,10 @@ class ChatSession:
                 
                 return {
                     "content": content,
+                    "tokens": prompt_tokens + completion_tokens,
+                    "finish_reason": finish,
                     "display": self.cost_tracker.format_call_display(call_log),
+                    "model_used": self.last_model_used,
                     "turns": self.turn_count,
                     "history_size": len(self.messages),
                 }
@@ -69,7 +84,10 @@ class ChatSession:
                 self.messages.pop()
                 return {
                     "content": "(no response — try again)",
+                    "tokens": 0,
+                    "finish_reason": finish,
                     "display": "   [0 tok | failed]",
+                    "model_used": self.last_model_used,
                     "turns": self.turn_count,
                     "history_size": len(self.messages),
                 }
@@ -77,7 +95,10 @@ class ChatSession:
             self.messages.pop()
             return {
                 "content": f"Error: {e}",
+                "tokens": 0,
+                "finish_reason": "error",
                 "display": "   [0 tok | error]",
+                "model_used": self.last_model_used,
                 "turns": self.turn_count,
                 "history_size": len(self.messages),
             }
@@ -141,6 +162,8 @@ def print_help():
     print("  /load <name>    Load a saved conversation")
     print("  /history        List saved conversations")
     print("  /window <n>     Set sliding window size (or 'off' for unlimited)")
+    print("  /routing on/off Toggle automatic model selection")
+    print("  /explain <q>    Show which model would handle a question")
     print("  /help           Show this help")
     print("  /quit           Exit")
     print()
@@ -267,6 +290,32 @@ def main():
                     except ValueError:
                         print(f"\n  Invalid window size: {cmd[1]}\n")
 
+            elif cmd[0] == "/routing":
+                if len(cmd) < 2:
+                    status = "ON" if session.routing_enabled else "OFF"
+                    print(f"\n  Routing: {status}")
+                    print(f"  Available models:")
+                    for cat, m in MODELS.items():
+                        print(f"    {cat:<10} {m['display']:<25} — for {', '.join(m['strengths'])}")
+                    print(f"\n  Usage: /routing on  or  /routing off\n")
+                elif cmd[1].lower() == "on":
+                    session.routing_enabled = True
+                    print("\n  Routing ON — auto-selecting model per question\n")
+                elif cmd[1].lower() == "off":
+                    session.routing_enabled = False
+                    print(f"\n  Routing OFF — always using {MODEL}\n")
+
+            elif cmd[0] == "/explain":
+                if len(cmd) < 2:
+                    print("\n  Usage: /explain <your question>")
+                    print("  Shows which model would be used (without actually asking)\n")
+                else:
+                    question = " ".join(cmd[1:])
+                    info = explain_routing(question, session.mode)
+                    print(f"\n  Question: {question}")
+                    print(f"  Would use: {info['model_name']}")
+                    print(f"  Reason:    {info['reason']}\n")
+
             elif cmd[0] == "/help":
                 print_help()
 
@@ -279,7 +328,7 @@ def main():
         # Regular chat
         result = session.chat(user_input)
         
-        print(f"\nAI: {result['content']}")
+        print(f"\nAI [{result['model_used']}]: {result['content']}")
         print(result['display'])
         print()
 
