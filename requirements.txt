@@ -1,0 +1,27 @@
+# Core framework
+fastapi==0.115.0
+uvicorn[standard]==0.32.0
+
+# Database
+sqlalchemy==2.0.36
+asyncpg==0.30.0
+alembic==1.13.3
+greenlet==3.1.1
+
+# Cache & rate limiting
+redis==5.2.0
+
+# LLM
+openai==1.54.0
+httpx==0.27.2
+
+# Auth
+passlib[bcrypt]==1.7.4
+bcrypt==4.0.1
+python-jose[cryptography]==3.3.0
+python-multipart==0.0.12
+
+# Utilities
+python-dotenv==1.0.1
+pydantic==2.9.2
+email-validator==2.2.0

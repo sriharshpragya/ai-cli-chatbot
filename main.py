@@ -9,6 +9,7 @@ from storage import save_conversation, load_conversation, list_conversations
 from cost_tracker import CostTracker
 from router import get_model_for_question, explain_routing, MODELS
 from prompt_registry import PromptManager
+from config import OPENROUTER_API_KEY, DEFAULT_MODEL
 
 load_dotenv()
 
@@ -17,7 +18,7 @@ client = OpenAI(
     api_key=os.getenv("OPENROUTER_API_KEY"),
 )
 
-MODEL = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
+MODEL = DEFAULT_MODEL
 
 class ChatSession:
     def __init__(self, mode="general", max_history_turns=10, prompt_manager=None):

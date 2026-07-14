@@ -1,203 +1,290 @@
 # 🤖 AI CLI Chatbot
 
-A production-grade multi-mode AI chatbot with intelligent model routing, conversation memory management, versioned prompts, and detailed cost tracking — built with Python and OpenAI-compatible APIs.
+**Personal project: A production-grade AI chatbot with dual interfaces — interactive CLI and REST API.**
 
 ![Python](https://img.shields.io/badge/Python-3.11-blue)
-![License](https://img.shields.io/badge/License-MIT-green)
-![Status](https://img.shields.io/badge/Status-Production%20Ready-success)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009485)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791)
+![Redis](https://img.shields.io/badge/Redis-7-DC382D)
+![Docker](https://img.shields.io/badge/Docker-Multi--stage-2496ED)
+
+Built as a hands-on exploration of modern AI infrastructure patterns — applying production engineering principles (authentication, rate limiting, streaming, persistence) to a domain I was curious about.
+
+Single codebase, dual interfaces — like Stripe's `stripe listen` CLI + Stripe API. Same business logic, two different ways to interact with it.
 
 ## Features
 
-### Core Features
-- **5 Expert Modes** — Switch between General Assistant, Ruby/Rails Expert, Python Tutor, SQL Expert, and Code Reviewer
-- **Conversation Memory** — Full conversation history maintained across turns with smart filtering
-- **Save & Load** — Persist conversations to JSON files and resume later
-- **History Management** — Empty responses filtered automatically to keep conversation quality high
-- **Graceful Error Handling** — Rate limits, timeouts, and API failures handled without crashing
+### Interactive CLI Mode
+- **Multiple personas** (general, ruby, python, sql, code-review)
+- **Smart model routing** — automatically picks the right model based on question complexity
+- **Streaming responses** — see AI think in real-time
+- **Conversation memory** with sliding window management
+- **Cost tracking** per session with detailed breakdowns
+- **Session save/load** — resume conversations later
+- **Command system** (`/mode`, `/save`, `/cost`, `/help`)
 
-### Production-Grade Features (Week 2 Enhancements)
-- **Intelligent Model Routing** — Automatically picks the optimal model for each question type (fast for simple, reasoning for complex)
-- **Sliding Window Memory** — Caps conversation token cost without losing recent context
-- **Detailed Cost Tracking** — Separates input/output tokens, tracks cost per call and per model
-- **Versioned Prompt Registry** — Track prompt changes like database migrations, roll back if a new version performs worse
-
-## Demo
-
-```
-$ python main.py
-
-=======================================================
-  🤖  AI CLI Chatbot
-  Built by Pragya Sriharsh
-=======================================================
-
-  Mode: General Assistant
-  Type /help for commands
-
-You: /explain why is my Rails app slow?
-  Would use: Nemotron (reasoning)
-  Reason:    Detected reasoning/analysis question — using reasoning model
-
-You: /mode sql
-  Switched to: SQL Expert
-
-You: write a query for finding top customers
-
-AI [Nemotron (balanced)]:
-WITH customer_totals AS (
-    SELECT customer_id, SUM(order_total) AS total_revenue
-    FROM orders
-    GROUP BY customer_id
-)
-SELECT c.name, ct.total_revenue
-FROM customer_totals ct
-JOIN customers c ON c.id = ct.customer_id
-ORDER BY ct.total_revenue DESC
-LIMIT 10;
-   [580 tok | in:120 out:460 | $0.000087 | stop]
-
-You: /stats
-
-  === Session Stats ===
-  Mode:           SQL Expert (v1.0)
-  Window:         10 turns
-  Total calls:    1
-  Input tokens:   120
-  Output tokens:  460
-  Total tokens:   580
-  Avg per call:   580
-  Total cost:     $0.000087
-```
+### Production REST API Mode
+- **Authentication** via API keys (bcrypt-hashed with prefix indexing)
+- **Rate limiting** with Redis-backed sliding window (multi-worker safe)
+- **Streaming** via Server-Sent Events (SSE)
+- **PostgreSQL** persistence for users, keys, conversations, messages
+- **Cost tracking** per message in database
+- **Auto-generated docs** at `/docs` (Swagger UI)
+- **Auto-deploy** from GitHub to Railway
 
 ## Architecture
 
 <p align="center">
-  <img src="architecture.svg" alt="Architecture Diagram" width="700"/>
+  <img src="architecture.svg" alt="Architecture Diagram" width="800"/>
 </p>
 
-The flow shows:
-User input → Command router (detects / commands vs regular messages) → branches into command handlers (mode, stats, save, load, reset, history, window, routing, versions, rollback) or chat engine (ChatSession class) → router selects optimal model → calls OpenRouter API → cost tracker logs every call → returns response with stats (content, tokens, cost, finish reason). Save/load commands connect to JSON storage. Prompt registry manages versioned system prompts with rollback capability.
+**Shared modules** between CLI and API:
+- `router.py` — model selection logic based on question complexity
+- `prompt_registry.py` — mode-specific system prompts
+- `modes.py` — mode configurations
+- `cost_tracker.py` — token/cost calculations
+- `database/` — shared storage layer (used by API, optional for CLI)
+- `cache/` — Redis rate limiting and session cache
 
-```
-main.py              → Chat loop, command router, session orchestration
-modes.py             → Mode display names and routing config
-router.py            → Intelligent model selection per question (NEW Week 2)
-prompt_registry.py   → Versioned prompts with rollback (NEW Week 2)
-cost_tracker.py      → Token + cost tracking, in/out separation (NEW Week 2)
-storage.py           → JSON-based conversation persistence
-chat_history/        → Saved conversation files (gitignored)
-```
+Both interfaces call the same underlying logic — bug fixes and features stay in sync automatically.
 
+## Two Ways to Use It
 
-
-## Available Modes
-
-| Mode | Command | Description |
-|------|---------|-------------|
-| General Assistant | `/mode general` | General-purpose AI assistant |
-| Ruby/Rails Expert | `/mode ruby` | Explains concepts using Ruby/Rails analogies |
-| Python Tutor | `/mode python` | Teaches Python with Ruby comparisons side by side |
-| SQL Expert | `/mode sql` | Writes and optimizes PostgreSQL queries with index suggestions |
-| Code Reviewer | `/mode code-review` | Reviews code for bugs, performance, style, and security |
-
-## All Commands
-
-### Basic Commands
-| Command | Description |
-|---------|-------------|
-| `/mode <name>` | Switch to a different expert mode |
-| `/modes` | List all available modes |
-| `/save [name]` | Save conversation to a JSON file |
-| `/load <name>` | Load a previously saved conversation |
-| `/history` | List all saved conversations |
-| `/reset` | Clear conversation history and cost tracking |
-| `/help` | Show all available commands |
-| `/quit` | Exit the chatbot |
-
-### Production Feature Commands (Week 2)
-| Command | Description |
-|---------|-------------|
-| `/stats` | Detailed session stats: tokens (in/out), cost, per-model breakdown |
-| `/window <n>` | Set sliding window size (or `off` for unlimited history) |
-| `/routing on/off` | Toggle automatic model selection per question |
-| `/explain <q>` | Show which model would handle a question (without asking it) |
-| `/versions <mode>` | Show version history of a mode's prompt |
-| `/rollback <mode> <v>` | Roll back to an older prompt version |
-
-## Setup
+### 🖥️ CLI Mode (Great for developers)
 
 ```bash
-# Clone the repo
-git clone https://github.com/sriharshpragya/ai-cli-chatbot.git
-cd ai-cli-chatbot
-
-# Create virtual environment
-python3.11 -m venv venv
-source venv/bin/activate
-
-# Install dependencies
-pip install openai python-dotenv
-
-# Add your API key (get one free at openrouter.ai)
-cat > .env << 'EOF'
-OPENROUTER_API_KEY=your-key-here
-EOF
-
-# Run
 python main.py
 ```
 
+```
+🤖  AI CLI Chatbot v3.0
+Type /help for commands
+
+You > /mode ruby
+Switched to Ruby expert mode
+
+You > How do I use ActiveRecord validations?
+AI > In Rails, validations ensure data integrity...
+    Model: nvidia/llama-3.1-nemotron-70b-instruct
+    Cost: $0.0023
+
+You > /cost
+Session cost: $0.0089 (4 messages, 1,247 tokens)
+
+You > /save my_ruby_session
+Saved to sessions/my_ruby_session.json
+```
+
+### 🌐 API Mode (For integration)
+
+```bash
+uvicorn api:app --reload
+# Visit http://localhost:8000/docs
+```
+
+```bash
+curl -X POST http://localhost:8000/chat \
+  -H "X-API-Key: sk_live_your_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": "Explain Python decorators",
+    "mode": "python",
+    "max_tokens": 500
+  }'
+```
+
+**Response:**
+```json
+{
+  "response": "Decorators are a way to modify functions...",
+  "conversation_id": "550e8400-e29b-41d4",
+  "mode": "python",
+  "model_used": "openai/gpt-4o-mini",
+  "tokens": 342,
+  "cost_usd": "$0.000107",
+  "calls_remaining_today": 998
+}
+```
+
+### 📡 Streaming API
+
+```bash
+curl -N -X POST http://localhost:8000/chat/stream \
+  -H "X-API-Key: sk_live_your_key" \
+  -H "Content-Type: application/json" \
+  -d '{"message": "Explain async/await", "mode": "python"}'
+```
+
+Returns Server-Sent Events (SSE) — real-time streaming for chat UIs.
+
+## API Endpoints
+
+### Public
+- `GET /` — Health check
+- `GET /health` — Deep health check (verifies DB + Redis)
+- `GET /modes` — List available modes
+- `POST /register` — Create user account
+
+### Authenticated (requires `X-API-Key`)
+- `GET /me` — Current user info
+- `POST /me/keys` — Generate API key
+- `GET /me/keys` — List your API keys
+- `DELETE /me/keys/{id}` — Revoke API key
+- `POST /chat` — Chat with mode routing
+- `POST /chat/stream` — Streaming chat
+- `GET /conversations` — List your conversations
+- `GET /conversations/{id}` — Get full conversation history
+
 ## Tech Stack
 
-- **Python 3.11** — Core language
-- **OpenAI SDK** — LLM API client (OpenAI-compatible format)
-- **OpenRouter** — Multi-model gateway (access GPT, Claude, DeepSeek, Gemma, and more via one API)
-- **python-dotenv** — Secure API key management
-- **JSON** — Lightweight conversation and prompt persistence
+- **Python 3.11** with type hints throughout
+- **FastAPI 0.115** — async web framework
+- **SQLAlchemy 2.0** — async ORM
+- **PostgreSQL 16** — durable storage (via Docker)
+- **Redis 7** — cache + rate limiting (via Docker)
+- **Alembic** — database migrations
+- **OpenAI SDK** — LLM integration via OpenRouter
+- **bcrypt + JWT** — authentication
+- **Docker** — multi-stage builds for production
+- **Railway** — deployment platform
 
-## Key Design Decisions
+## Getting Started
 
-**Why OpenRouter?** — Single API format works with 100+ models. Switch models by changing one string. No vendor lock-in. Critical for the model routing feature.
+### Prerequisites
+- Python 3.11+
+- Docker & Docker Compose
+- OpenRouter API key ([get one free](https://openrouter.ai))
 
-**Why filter empty responses?** — Empty/None assistant responses in conversation history degrade future answer quality. The model sees failed turns and its responses get worse. Smart filtering keeps history clean.
+### Setup
 
-**Why intelligent model routing?** — Different questions need different model capabilities. Simple factual questions don't need a reasoning model — that's wasted tokens. The router classifies each question and picks the optimal model. In production this saves 50-80% on token costs.
+```bash
+# Clone
+git clone https://github.com/sriharshpragya/ai-cli-chatbot.git
+cd ai-cli-chatbot
 
-**Why sliding window memory?** — LLMs have no memory between API calls; you send the entire conversation history with each call. Without limits, token cost grows quadratically. Sliding window caps history at N recent turns, keeping costs bounded while preserving recent context.
+# Start services (PostgreSQL + Redis in Docker)
+docker-compose up -d
 
-**Why separate input/output token tracking?** — Output tokens cost 3-4x more than input tokens on most models (GPT-4o: $2.50 input / $10 output per 1M). Tracking them separately reveals where optimization matters most.
+# Setup Python
+python3.11 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
 
-**Why versioned prompts?** — Prompts are like database schemas — small changes can break production. The registry tracks every version with notes explaining each iteration. If a new prompt performs worse, `/rollback` switches back without a code deploy.
+# Configure environment
+cp .env.example .env
+# Edit .env — add your OPENROUTER_API_KEY
 
-**Why system prompts for modes?** — System prompts are the simplest and most powerful way to shape AI behavior. No fine-tuning needed — just clear instructions. Each mode demonstrates how the same model produces vastly different outputs based on the system prompt.
+# Run migrations
+alembic upgrade head
 
-## What I Learned Building This
+# Bootstrap first user + API key (for API mode)
+python bootstrap_key.py
 
-### Week 1 — Foundations
-- LLM APIs use a messages array format — the model has no memory, you manage conversation history
-- System prompts are powerful enough to create distinct expert personas without fine-tuning
-- Token costs grow with every conversation turn (entire history is re-sent each time)
-- Always check for None content — API success (HTTP 200) doesn't guarantee useful output
-- The `.get()` method returns None (not the default) when a key exists with a null value
-- Free models have rate limits and inconsistent availability — fallback models are essential
-- Exponential backoff prevents thundering herd problems when retrying failed requests
+# Run CLI
+python main.py
 
-### Week 2 — Production Patterns
-- Output tokens cost 3-4x more than input tokens on most models
-- Prompt compression alone isn't enough — must constrain output length too
-- Different question types need different models (intelligent routing pattern)
-- Sliding window is essential for chat apps at scale
-- Versioned prompts enable safe iteration and rollback in production
-- Persona drift is real — strong format rules and explicit constraints prevent it
-- A/B testing prompts requires measurable metrics (cost, quality, latency)
-- Atomic commits per feature make code reviewable and rollbackable
+# OR run API
+uvicorn api:app --reload
+```
 
-## Author
+### Environment Variables
 
-**Pragya Sriharsh** — Senior Engineering Lead at Persistent Systems, transitioning into Agentic AI development. 10+ years of backend experience with Ruby/Rails, Node.js, PostgreSQL, and AWS.
+```bash
+OPENROUTER_API_KEY=your-key-here          # required for both modes
+DATABASE_URL=postgresql+asyncpg://...     # optional (for API mode)
+REDIS_URL=redis://localhost:6380/0        # optional (for API mode)
+ENVIRONMENT=development                    # optional
+DEFAULT_MODEL=openai/gpt-4o-mini          # optional
+```
 
-This is Week 1-2 of a [26-week Agentic AI learning roadmap](https://github.com/sriharshpragya).
+## Production Deployment
+
+The API mode is deployed on Railway with:
+- **Auto-deploy** from `main` branch
+- **Managed** PostgreSQL and Redis
+- **HTTPS** with automatic SSL
+- **Health checks** for zero-downtime deploys
+- **Multi-stage Docker build** for minimal image size
+
+Deployment configuration in `Dockerfile` and `railway.json`.
+
+## Engineering Decisions
+
+While the domain is AI, the engineering patterns are what interested me. Key decisions:
+
+### Why dual CLI + API?
+Different use cases need different interfaces. Developers want CLI for quick iteration. Frontends need API. Sharing the same underlying modules means:
+- No duplicate business logic
+- Bug fixes affect both
+- Features stay in sync
+- Same cost model, routing, prompts
+
+This pattern is common in developer tools (Stripe CLI + API, GitHub CLI + API, AWS CLI + API).
+
+### Why sliding window rate limiting?
+Fixed window rate limits fail at boundary conditions (attacker can 2× the limit by timing bursts around the reset). Sliding window uses timestamps in Redis sorted sets for accurate enforcement across any 60-second period.
+
+### Why Redis for rate limits?
+In-memory counters break with multiple workers — each worker has its own state. Redis provides shared state, so `5/min` stays `5/min` regardless of worker count.
+
+Same problem exists in Rails multi-server deployments — I've hit it before with Sidekiq counters and solved it with Redis. The Python approach translates the same pattern.
+
+### Why hash API keys?
+Bcrypt-hashed keys can't be recovered if the database is compromised. Combined with prefix indexing, we can efficiently find candidate keys then verify against the hash.
+
+Same principle as `has_secure_password` in Rails — never store plaintext credentials.
+
+### Why async everywhere?
+LLM calls are I/O-bound (waiting on network). Async lets one worker handle hundreds of concurrent requests by interleaving them. Same worker serves 100x more users compared to sync equivalents.
+
+Rails uses different concurrency models (Puma threads, Sidekiq processes) — this project was a chance to learn async/await patterns applied to I/O-heavy workloads.
+
+## Testing
+
+```bash
+# Test API is up
+curl http://localhost:8000/
+
+# Register a user
+curl -X POST http://localhost:8000/register \
+  -H "Content-Type: application/json" \
+  -d '{"username": "test", "email": "test@example.com", "password": "securepass"}'
+
+# Send a chat message (replace with your API key)
+curl -X POST http://localhost:8000/chat \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: sk_live_your_key_here" \
+  -d '{"message": "What is FastAPI?", "mode": "general"}'
+
+# Test rate limiting (should get 429 after 5 requests)
+for i in {1..8}; do
+    curl -s -w "  Status: %{http_code}\n" -o /dev/null \
+        -X POST http://localhost:8000/chat \
+        -H "X-API-Key: $KEY" \
+        -H "Content-Type: application/json" \
+        -d '{"message": "hi", "mode": "general"}'
+done
+```
+
+## What This Project Demonstrates
+
+- **API design** — RESTful endpoints, proper HTTP status codes, versioning, OpenAPI documentation
+- **Database engineering** — schema design, migrations, indexing, N+1 prevention, connection pooling
+- **Production infrastructure** — Docker containerization, environment configuration, health checks, zero-downtime deploys
+- **Security** — password hashing, API key management, rate limiting, input validation
+- **Caching strategies** — Redis-backed session caching, sliding window rate limiting
+- **Async programming** — non-blocking I/O, concurrent request handling
+- **DevOps** — CI/CD pipelines, managed services, monitoring
+
+Concepts I've applied in Ruby on Rails contexts (Sidekiq workers, ActiveRecord, Redis caching, background jobs), rebuilt in Python's async ecosystem.
 
 ## License
 
 MIT
+
+## Author
+
+**Pragya Sriharsh** — Senior Backend Engineer  
+10+ years building production systems: Ruby on Rails, Node.js, PostgreSQL, React, AWS  
+- [LinkedIn](https://linkedin.com/in/pragyasriharsh)
+- [GitHub](https://github.com/sriharshpragya)

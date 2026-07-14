@@ -1,0 +1,34 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: day16-postgres
+    environment:
+      POSTGRES_USER: pragya
+      POSTGRES_PASSWORD: dev_password
+      POSTGRES_DB: ai_chat_db
+    ports:
+      - "5433:5432"  # host:container — using 5433 to avoid conflicts
+    volumes:
+      - day16_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pragya -d ai_chat_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: day16-redis
+    ports:
+      - "6380:6379"  # host:container — using 6380 to avoid conflicts
+    volumes:
+      - day16_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  day16_postgres_data:
+  day16_redis_data:
