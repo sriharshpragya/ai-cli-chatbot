@@ -1,0 +1,20 @@
+[CONFIG] Environment: development
+[CONFIG] Database: DISABLED (CLI mode)
+[CONFIG] Redis: DISABLED (CLI mode)
+[CONFIG] Model: openai/gpt-4o-mini
+Traceback (most recent call last):
+  File "/Users/pragya.sriharsh/Documents/learning-ai/projects/ai-cli-chatbot/bootstrap_key.py", line 41, in <module>
+    asyncio.run(main())
+  File "/opt/homebrew/Cellar/python@3.11/3.11.15_1/Frameworks/Python.framework/Versions/3.11/lib/python3.11/asyncio/runners.py", line 190, in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.11/3.11.15_1/Frameworks/Python.framework/Versions/3.11/lib/python3.11/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.11/3.11.15_1/Frameworks/Python.framework/Versions/3.11/lib/python3.11/asyncio/base_events.py", line 654, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/Users/pragya.sriharsh/Documents/learning-ai/projects/ai-cli-chatbot/bootstrap_key.py", line 15, in main
+    async with AsyncSessionLocal() as db:
+               ^^^^^^^^^^^^^^^^^^^
+TypeError: 'NoneType' object is not callable

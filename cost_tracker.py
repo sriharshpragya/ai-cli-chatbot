@@ -21,6 +21,15 @@ MODEL_PRICING = {
 }
 
 
+def calculate_call_cost(model: str, prompt_tokens: int, completion_tokens: int) -> float:
+    """Calculate USD cost for a single LLM call."""
+    pricing = MODEL_PRICING.get(model, {"input": 0, "output": 0})
+    return (
+        (prompt_tokens / 1_000_000) * pricing["input"]
+        + (completion_tokens / 1_000_000) * pricing["output"]
+    )
+
+
 class CostTracker:
     """Tracks LLM call costs across the session."""
     

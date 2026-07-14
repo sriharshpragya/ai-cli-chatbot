@@ -91,6 +91,11 @@ def get_model_for_question(user_input, mode="general"):
     }
 
 
+def get_model_name_for_question(user_input, mode="general") -> str:
+    """Return the OpenRouter model ID for an LLM API call."""
+    return get_model_for_question(user_input, mode)["name"]
+
+
 def explain_routing(user_input, mode="general"):
     """Return a human-readable explanation of why this model was chosen."""
     category = classify_question(user_input, mode)

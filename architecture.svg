@@ -1,111 +1,134 @@
-<svg width="100%" viewBox="0 0 680 522.96" role="img" style="" xmlns="http://www.w3.org/2000/svg">
-<title style="fill:rgb(0, 0, 0);stroke:none;color:rgb(0, 0, 0);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto">AI CLI chatbot architecture diagram</title>
-<desc style="fill:rgb(0, 0, 0);stroke:none;color:rgb(0, 0, 0);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto">Flow diagram showing user input flowing through the command router to either command handlers or the chat engine, which connects to OpenRouter API and conversation storage.</desc>
-<defs>
-<marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-<path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-</marker>
-<mask id="imagine-text-gaps-59z095" maskUnits="userSpaceOnUse"><rect x="0" y="0" width="680" height="522.96" fill="white"/><rect x="301.2830810546875" y="41.245758056640625" width="77.43384552001953" height="21.50848388671875" fill="black" rx="2"/><rect x="279.2209777832031" y="119.24575805664062" width="121.55804443359375" height="21.50848388671875" fill="black" rx="2"/><rect x="256.46612548828125" y="138.65773010253906" width="167.0677490234375" height="18.739654541015625" fill="black" rx="2"/><rect x="141" y="176.13941955566406" width="76.5601806640625" height="18.684534072875977" fill="black" rx="2"/><rect x="426" y="176.13941955566406" width="103.5377197265625" height="18.81764793395996" fill="black" rx="2"/><rect x="91.2080307006836" y="237.24575805664062" width="137.58395385742188" height="21.50848388671875" fill="black" rx="2"/><rect x="86.07674407958984" y="270.65771484375" width="43.846500396728516" height="18.684534072875977" fill="black" rx="2"/><rect x="195.8152313232422" y="270.65771484375" width="40.36951446533203" height="18.684534072875977" fill="black" rx="2"/><rect x="89.16985321044922" y="312.6577453613281" width="37.660287857055664" height="18.684534072875977" fill="black" rx="2"/><rect x="198.0611572265625" y="312.6577453613281" width="35.87767028808594" height="18.684534072875977" fill="black" rx="2"/><rect x="87.17102813720703" y="354.6577453613281" width="41.65793991088867" height="18.684534072875977" fill="black" rx="2"/><rect x="190.20263671875" y="354.6577453613281" width="51.59471130371094" height="18.739654541015625" fill="black" rx="2"/><rect x="445.7101745605469" y="229.24574279785156" width="88.5796127319336" height="21.562639236450195" fill="black" rx="2"/><rect x="434.8997802734375" y="248.65773010253906" width="110.20047760009766" height="18.684534072875977" fill="black" rx="2"/><rect x="271.6301574707031" y="327.2457580566406" width="116.73967742919922" height="21.50848388671875" fill="black" rx="2"/><rect x="259.3724670410156" y="346.65771484375" width="141.2550811767578" height="18.739654541015625" fill="black" rx="2"/><rect x="492.55230712890625" y="327.2457580566406" width="114.8952865600586" height="21.50848388671875" fill="black" rx="2"/><rect x="508.6973876953125" y="346.65771484375" width="82.6052017211914" height="18.817630767822266" fill="black" rx="2"/><rect x="110.16819763183594" y="439.2457580566406" width="99.66361236572266" height="21.562639236450195" fill="black" rx="2"/><rect x="80.6402816772461" y="458.65771484375" width="158.71945190429688" height="18.817630767822266" fill="black" rx="2"/><rect x="478.9695129394531" y="439.2457580566406" width="122.0610580444336" height="21.50848388671875" fill="black" rx="2"/><rect x="451.502197265625" y="458.65771484375" width="176.99569702148438" height="18.684534072875977" fill="black" rx="2"/><rect x="36" y="496.139404296875" width="604.356201171875" height="18.817630767822266" fill="black" rx="2"/></mask></defs>
-
-<!-- User Input -->
-<g style="fill:rgb(0, 0, 0);stroke:none;color:rgb(0, 0, 0);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto">
-<rect x="260" y="30" width="160" height="44" rx="8" stroke-width="0.5" style="fill:rgb(241, 239, 232);stroke:rgb(95, 94, 90);color:rgb(0, 0, 0);stroke-width:0.5px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
-<text x="340" y="52" text-anchor="middle" dominant-baseline="central" style="fill:rgb(68, 68, 65);stroke:none;color:rgb(0, 0, 0);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:14px;font-weight:500;text-anchor:middle;dominant-baseline:central">User input</text>
-</g>
-
-<!-- Arrow: User → Router -->
-<line x1="340" y1="74" x2="340" y2="110" marker-end="url(#arrow)" style="fill:none;stroke:rgb(115, 114, 108);color:rgb(0, 0, 0);stroke-width:1.5px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
-
-<!-- Command Router -->
-<g style="fill:rgb(0, 0, 0);stroke:none;color:rgb(0, 0, 0);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto">
-<rect x="230" y="110" width="220" height="56" rx="8" stroke-width="0.5" style="fill:rgb(238, 237, 254);stroke:rgb(83, 74, 183);color:rgb(0, 0, 0);stroke-width:0.5px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
-<text x="340" y="130" text-anchor="middle" dominant-baseline="central" style="fill:rgb(60, 52, 137);stroke:none;color:rgb(0, 0, 0);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:14px;font-weight:500;text-anchor:middle;dominant-baseline:central">Command router</text>
-<text x="340" y="148" text-anchor="middle" dominant-baseline="central" style="fill:rgb(83, 74, 183);stroke:none;color:rgb(0, 0, 0);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:12px;font-weight:400;text-anchor:middle;dominant-baseline:central">main.py — / prefix detection</text>
-</g>
-
-<!-- Branch label: starts with / -->
-<text x="145" y="190" style="fill:rgb(61, 61, 58);stroke:none;color:rgb(0, 0, 0);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:12px;font-weight:400;text-anchor:start;dominant-baseline:auto">Starts with /</text>
-<!-- Branch label: regular message -->
-<text x="430" y="190" style="fill:rgb(61, 61, 58);stroke:none;color:rgb(0, 0, 0);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:12px;font-weight:400;text-anchor:start;dominant-baseline:auto">Regular message</text>
-
-<!-- Arrow: Router → Commands (left) -->
-<line x1="280" y1="166" x2="160" y2="220" marker-end="url(#arrow)" mask="url(#imagine-text-gaps-59z095)" style="fill:none;stroke:rgb(115, 114, 108);color:rgb(0, 0, 0);stroke-width:1.5px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
-
-<!-- Arrow: Router → Chat Engine (right) -->
-<line x1="400" y1="166" x2="480" y2="220" marker-end="url(#arrow)" mask="url(#imagine-text-gaps-59z095)" style="fill:none;stroke:rgb(115, 114, 108);color:rgb(0, 0, 0);stroke-width:1.5px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
-
-<!-- Command Handlers (left branch) -->
-<g style="fill:rgb(0, 0, 0);stroke:none;color:rgb(0, 0, 0);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto">
-<rect x="40" y="220" width="240" height="170" rx="12" stroke-width="0.5" style="fill:rgb(225, 245, 238);stroke:rgb(15, 110, 86);color:rgb(0, 0, 0);stroke-width:0.5px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
-<text x="160" y="248" text-anchor="middle" dominant-baseline="central" style="fill:rgb(8, 80, 65);stroke:none;color:rgb(0, 0, 0);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:14px;font-weight:500;text-anchor:middle;dominant-baseline:central">Command handlers</text>
-
-<!-- Individual commands inside -->
-<rect x="60" y="264" width="96" height="32" rx="6" fill="none" stroke="var(--b)" stroke-width="0.5" style="fill:rgb(225, 245, 238);stroke:rgb(15, 110, 86);color:rgb(0, 0, 0);stroke-width:0.5px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
-<text x="108" y="280" text-anchor="middle" dominant-baseline="central" style="fill:rgb(15, 110, 86);stroke:none;color:rgb(0, 0, 0);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:12px;font-weight:400;text-anchor:middle;dominant-baseline:central">/mode</text>
-
-<rect x="168" y="264" width="96" height="32" rx="6" fill="none" stroke="var(--b)" stroke-width="0.5" style="fill:rgb(225, 245, 238);stroke:rgb(15, 110, 86);color:rgb(0, 0, 0);stroke-width:0.5px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
-<text x="216" y="280" text-anchor="middle" dominant-baseline="central" style="fill:rgb(15, 110, 86);stroke:none;color:rgb(0, 0, 0);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:12px;font-weight:400;text-anchor:middle;dominant-baseline:central">/stats</text>
-
-<rect x="60" y="306" width="96" height="32" rx="6" fill="none" stroke="var(--b)" stroke-width="0.5" style="fill:rgb(225, 245, 238);stroke:rgb(15, 110, 86);color:rgb(0, 0, 0);stroke-width:0.5px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
-<text x="108" y="322" text-anchor="middle" dominant-baseline="central" style="fill:rgb(15, 110, 86);stroke:none;color:rgb(0, 0, 0);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:12px;font-weight:400;text-anchor:middle;dominant-baseline:central">/save</text>
-
-<rect x="168" y="306" width="96" height="32" rx="6" fill="none" stroke="var(--b)" stroke-width="0.5" style="fill:rgb(225, 245, 238);stroke:rgb(15, 110, 86);color:rgb(0, 0, 0);stroke-width:0.5px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
-<text x="216" y="322" text-anchor="middle" dominant-baseline="central" style="fill:rgb(15, 110, 86);stroke:none;color:rgb(0, 0, 0);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:12px;font-weight:400;text-anchor:middle;dominant-baseline:central">/load</text>
-
-<rect x="60" y="348" width="96" height="32" rx="6" fill="none" stroke="var(--b)" stroke-width="0.5" style="fill:rgb(225, 245, 238);stroke:rgb(15, 110, 86);color:rgb(0, 0, 0);stroke-width:0.5px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
-<text x="108" y="364" text-anchor="middle" dominant-baseline="central" style="fill:rgb(15, 110, 86);stroke:none;color:rgb(0, 0, 0);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:12px;font-weight:400;text-anchor:middle;dominant-baseline:central">/reset</text>
-
-<rect x="168" y="348" width="96" height="32" rx="6" fill="none" stroke="var(--b)" stroke-width="0.5" style="fill:rgb(225, 245, 238);stroke:rgb(15, 110, 86);color:rgb(0, 0, 0);stroke-width:0.5px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
-<text x="216" y="364" text-anchor="middle" dominant-baseline="central" style="fill:rgb(15, 110, 86);stroke:none;color:rgb(0, 0, 0);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:12px;font-weight:400;text-anchor:middle;dominant-baseline:central">/history</text>
-</g>
-
-<!-- Chat Engine (right branch) -->
-<g style="fill:rgb(0, 0, 0);stroke:none;color:rgb(0, 0, 0);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto">
-<rect x="370" y="220" width="240" height="56" rx="8" stroke-width="0.5" style="fill:rgb(250, 236, 231);stroke:rgb(153, 60, 29);color:rgb(0, 0, 0);stroke-width:0.5px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
-<text x="490" y="240" text-anchor="middle" dominant-baseline="central" style="fill:rgb(113, 43, 19);stroke:none;color:rgb(0, 0, 0);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:14px;font-weight:500;text-anchor:middle;dominant-baseline:central">Chat engine</text>
-<text x="490" y="258" text-anchor="middle" dominant-baseline="central" style="fill:rgb(153, 60, 29);stroke:none;color:rgb(0, 0, 0);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:12px;font-weight:400;text-anchor:middle;dominant-baseline:central">ChatSession class</text>
-</g>
-
-<!-- Arrow: Chat Engine → Modes -->
-<line x1="420" y1="276" x2="340" y2="318" marker-end="url(#arrow)" style="fill:none;stroke:rgb(115, 114, 108);color:rgb(0, 0, 0);stroke-width:1.5px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
-
-<!-- Arrow: Chat Engine → API -->
-<line x1="550" y1="276" x2="550" y2="318" marker-end="url(#arrow)" style="fill:none;stroke:rgb(115, 114, 108);color:rgb(0, 0, 0);stroke-width:1.5px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
-
-<!-- Modes -->
-<g style="fill:rgb(0, 0, 0);stroke:none;color:rgb(0, 0, 0);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto">
-<rect x="240" y="318" width="180" height="56" rx="8" stroke-width="0.5" style="fill:rgb(238, 237, 254);stroke:rgb(83, 74, 183);color:rgb(0, 0, 0);stroke-width:0.5px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
-<text x="330" y="338" text-anchor="middle" dominant-baseline="central" style="fill:rgb(60, 52, 137);stroke:none;color:rgb(0, 0, 0);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:14px;font-weight:500;text-anchor:middle;dominant-baseline:central">System prompts</text>
-<text x="330" y="356" text-anchor="middle" dominant-baseline="central" style="fill:rgb(83, 74, 183);stroke:none;color:rgb(0, 0, 0);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:12px;font-weight:400;text-anchor:middle;dominant-baseline:central">modes.py — 5 personas</text>
-</g>
-
-<!-- OpenRouter API -->
-<g style="fill:rgb(0, 0, 0);stroke:none;color:rgb(0, 0, 0);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto">
-<rect x="460" y="318" width="180" height="56" rx="8" stroke-width="0.5" style="fill:rgb(250, 238, 218);stroke:rgb(133, 79, 11);color:rgb(0, 0, 0);stroke-width:0.5px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
-<text x="550" y="338" text-anchor="middle" dominant-baseline="central" style="fill:rgb(99, 56, 6);stroke:none;color:rgb(0, 0, 0);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:14px;font-weight:500;text-anchor:middle;dominant-baseline:central">OpenRouter API</text>
-<text x="550" y="356" text-anchor="middle" dominant-baseline="central" style="fill:rgb(133, 79, 11);stroke:none;color:rgb(0, 0, 0);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:12px;font-weight:400;text-anchor:middle;dominant-baseline:central">LLM gateway</text>
-</g>
-
-<!-- Arrow: Commands → Storage -->
-<line x1="160" y1="390" x2="160" y2="430" marker-end="url(#arrow)" style="fill:none;stroke:rgb(115, 114, 108);color:rgb(0, 0, 0);stroke-width:1.5px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
-
-<!-- Arrow: API → Response -->
-<line x1="550" y1="374" x2="550" y2="430" marker-end="url(#arrow)" style="fill:none;stroke:rgb(115, 114, 108);color:rgb(0, 0, 0);stroke-width:1.5px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
-
-<!-- Storage -->
-<g style="fill:rgb(0, 0, 0);stroke:none;color:rgb(0, 0, 0);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto">
-<rect x="60" y="430" width="200" height="56" rx="8" stroke-width="0.5" style="fill:rgb(225, 245, 238);stroke:rgb(15, 110, 86);color:rgb(0, 0, 0);stroke-width:0.5px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
-<text x="160" y="450" text-anchor="middle" dominant-baseline="central" style="fill:rgb(8, 80, 65);stroke:none;color:rgb(0, 0, 0);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:14px;font-weight:500;text-anchor:middle;dominant-baseline:central">JSON storage</text>
-<text x="160" y="468" text-anchor="middle" dominant-baseline="central" style="fill:rgb(15, 110, 86);stroke:none;color:rgb(0, 0, 0);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:12px;font-weight:400;text-anchor:middle;dominant-baseline:central">storage.py — chat_history/</text>
-</g>
-
-<!-- Response -->
-<g style="fill:rgb(0, 0, 0);stroke:none;color:rgb(0, 0, 0);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto">
-<rect x="430" y="430" width="220" height="56" rx="8" stroke-width="0.5" style="fill:rgb(234, 243, 222);stroke:rgb(59, 109, 17);color:rgb(0, 0, 0);stroke-width:0.5px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
-<text x="540" y="450" text-anchor="middle" dominant-baseline="central" style="fill:rgb(39, 80, 10);stroke:none;color:rgb(0, 0, 0);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:14px;font-weight:500;text-anchor:middle;dominant-baseline:central">Response + stats</text>
-<text x="540" y="468" text-anchor="middle" dominant-baseline="central" style="fill:rgb(59, 109, 17);stroke:none;color:rgb(0, 0, 0);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:12px;font-weight:400;text-anchor:middle;dominant-baseline:central">Content, tokens, finish reason</text>
-</g>
-
-<!-- Files legend at bottom -->
-<text x="40" y="510" style="fill:rgb(61, 61, 58);stroke:none;color:rgb(0, 0, 0);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:12px;font-weight:400;text-anchor:start;dominant-baseline:auto">Files: main.py (router + UI) → modes.py (personas) → storage.py (persistence) → chat_history/ (JSON files)</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 720" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif">
+  <defs>
+    <linearGradient id="cliGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#10b981;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#059669;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="apiGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#009485;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#00695f;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="sharedGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#f59e0b;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#d97706;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="dbGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#336791;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1e3a5f;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="redisGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#DC382D;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#a02820;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="llmGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#8b5cf6;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#6d28d9;stop-opacity:1" />
+    </linearGradient>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#64748b"/>
+    </marker>
+  </defs>
+  
+  <text x="500" y="35" font-size="24" font-weight="700" fill="#0f172a" text-anchor="middle">AI CLI Chatbot Architecture</text>
+  <text x="500" y="58" font-size="13" fill="#64748b" text-anchor="middle">Single codebase, dual interfaces — CLI tool + Production REST API</text>
+  
+  <g>
+    <rect x="80" y="90" width="200" height="70" rx="8" fill="#f1f5f9" stroke="#94a3b8" stroke-width="2"/>
+    <text x="180" y="118" font-size="14" font-weight="600" fill="#1e293b" text-anchor="middle">🖥️ Developer</text>
+    <text x="180" y="138" font-size="11" fill="#64748b" text-anchor="middle">Terminal / SSH</text>
+    <text x="180" y="153" font-size="11" fill="#64748b" text-anchor="middle">Local CLI usage</text>
+  </g>
+  
+  <g>
+    <rect x="720" y="90" width="200" height="70" rx="8" fill="#f1f5f9" stroke="#94a3b8" stroke-width="2"/>
+    <text x="820" y="118" font-size="14" font-weight="600" fill="#1e293b" text-anchor="middle">🌐 API Clients</text>
+    <text x="820" y="138" font-size="11" fill="#64748b" text-anchor="middle">Web / Mobile / Bot</text>
+    <text x="820" y="153" font-size="11" fill="#64748b" text-anchor="middle">HTTPS + SSE</text>
+  </g>
+  
+  <line x1="180" y1="160" x2="180" y2="200" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="820" y1="160" x2="820" y2="200" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+  
+  <g>
+    <rect x="80" y="210" width="200" height="120" rx="12" fill="url(#cliGradient)" stroke="#065f46" stroke-width="2"/>
+    <text x="180" y="240" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">CLI Interface</text>
+    <text x="180" y="260" font-size="11" fill="#d1fae5" text-anchor="middle">main.py</text>
+    <line x1="100" y1="270" x2="260" y2="270" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
+    <text x="180" y="288" font-size="11" fill="#ecfdf5" text-anchor="middle">Interactive commands</text>
+    <text x="180" y="304" font-size="11" fill="#ecfdf5" text-anchor="middle">Session save/load</text>
+    <text x="180" y="320" font-size="11" fill="#ecfdf5" text-anchor="middle">Terminal streaming</text>
+  </g>
+  
+  <g>
+    <rect x="720" y="210" width="200" height="120" rx="12" fill="url(#apiGradient)" stroke="#065f56" stroke-width="2"/>
+    <text x="820" y="240" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">API Interface</text>
+    <text x="820" y="260" font-size="11" fill="#a7f3d0" text-anchor="middle">api.py (FastAPI)</text>
+    <line x1="740" y1="270" x2="900" y2="270" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
+    <text x="820" y="288" font-size="11" fill="#e0f2f1" text-anchor="middle">Auth + Rate Limiting</text>
+    <text x="820" y="304" font-size="11" fill="#e0f2f1" text-anchor="middle">SSE Streaming</text>
+    <text x="820" y="320" font-size="11" fill="#e0f2f1" text-anchor="middle">OpenAPI docs</text>
+  </g>
+  
+  <line x1="280" y1="270" x2="330" y2="410" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="720" y1="270" x2="670" y2="410" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+  
+  <g>
+    <rect x="200" y="360" width="600" height="130" rx="12" fill="url(#sharedGradient)" stroke="#92400e" stroke-width="2"/>
+    <text x="500" y="390" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">Shared Business Logic</text>
+    <text x="500" y="408" font-size="11" fill="#fef3c7" text-anchor="middle">Both interfaces reuse these modules</text>
+    
+    <rect x="220" y="420" width="130" height="55" rx="6" fill="rgba(255,255,255,0.2)" stroke="rgba(255,255,255,0.3)"/>
+    <text x="285" y="440" font-size="11" font-weight="600" fill="#ffffff" text-anchor="middle">router.py</text>
+    <text x="285" y="458" font-size="10" fill="#fef3c7" text-anchor="middle">Smart model</text>
+    <text x="285" y="470" font-size="10" fill="#fef3c7" text-anchor="middle">selection</text>
+    
+    <rect x="360" y="420" width="130" height="55" rx="6" fill="rgba(255,255,255,0.2)" stroke="rgba(255,255,255,0.3)"/>
+    <text x="425" y="440" font-size="11" font-weight="600" fill="#ffffff" text-anchor="middle">modes.py</text>
+    <text x="425" y="458" font-size="10" fill="#fef3c7" text-anchor="middle">System prompts</text>
+    <text x="425" y="470" font-size="10" fill="#fef3c7" text-anchor="middle">Per mode</text>
+    
+    <rect x="500" y="420" width="130" height="55" rx="6" fill="rgba(255,255,255,0.2)" stroke="rgba(255,255,255,0.3)"/>
+    <text x="565" y="440" font-size="11" font-weight="600" fill="#ffffff" text-anchor="middle">cost_tracker.py</text>
+    <text x="565" y="458" font-size="10" fill="#fef3c7" text-anchor="middle">Token counting</text>
+    <text x="565" y="470" font-size="10" fill="#fef3c7" text-anchor="middle">Cost calculation</text>
+    
+    <rect x="640" y="420" width="140" height="55" rx="6" fill="rgba(255,255,255,0.2)" stroke="rgba(255,255,255,0.3)"/>
+    <text x="710" y="440" font-size="11" font-weight="600" fill="#ffffff" text-anchor="middle">prompt_registry</text>
+    <text x="710" y="458" font-size="10" fill="#fef3c7" text-anchor="middle">Templated</text>
+    <text x="710" y="470" font-size="10" fill="#fef3c7" text-anchor="middle">prompts</text>
+  </g>
+  
+  <line x1="280" y1="490" x2="180" y2="560" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="500" y1="490" x2="500" y2="560" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="720" y1="490" x2="820" y2="560" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+  
+  <g>
+    <rect x="60" y="570" width="240" height="130" rx="12" fill="url(#dbGradient)" stroke="#1e3a5f" stroke-width="2"/>
+    <text x="180" y="600" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">PostgreSQL 16</text>
+    <text x="180" y="618" font-size="11" fill="#c7d2fe" text-anchor="middle">Durable Storage</text>
+    <line x1="80" y1="628" x2="280" y2="628" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
+    <text x="180" y="648" font-size="11" fill="#e0e7ff" text-anchor="middle">Users · API Keys</text>
+    <text x="180" y="664" font-size="11" fill="#e0e7ff" text-anchor="middle">Conversations · Messages</text>
+    <text x="180" y="680" font-size="11" fill="#e0e7ff" text-anchor="middle">Alembic migrations</text>
+  </g>
+  
+  <g>
+    <rect x="380" y="570" width="240" height="130" rx="12" fill="url(#redisGradient)" stroke="#7f1d1d" stroke-width="2"/>
+    <text x="500" y="600" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">Redis 7</text>
+    <text x="500" y="618" font-size="11" fill="#fecaca" text-anchor="middle">Cache + Rate Limiter</text>
+    <line x1="400" y1="628" x2="600" y2="628" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
+    <text x="500" y="648" font-size="11" fill="#fee2e2" text-anchor="middle">Sliding Window Rate Limits</text>
+    <text x="500" y="664" font-size="11" fill="#fee2e2" text-anchor="middle">Session Cache (5min TTL)</text>
+    <text x="500" y="680" font-size="11" fill="#fee2e2" text-anchor="middle">Multi-Worker Safe</text>
+  </g>
+  
+  <g>
+    <rect x="700" y="570" width="240" height="130" rx="12" fill="url(#llmGradient)" stroke="#5b21b6" stroke-width="2"/>
+    <text x="820" y="600" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">OpenRouter</text>
+    <text x="820" y="618" font-size="11" fill="#ddd6fe" text-anchor="middle">LLM Gateway</text>
+    <line x1="720" y1="628" x2="920" y2="628" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
+    <text x="820" y="648" font-size="11" fill="#ede9fe" text-anchor="middle">GPT-4o-mini · Nemotron</text>
+    <text x="820" y="664" font-size="11" fill="#ede9fe" text-anchor="middle">Gemma · Claude</text>
+    <text x="820" y="680" font-size="11" fill="#ede9fe" text-anchor="middle">Streaming support</text>
+  </g>
 </svg>
