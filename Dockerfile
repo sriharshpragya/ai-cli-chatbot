@@ -2,18 +2,25 @@
 # Production Dockerfile
 # ============================================
 FROM python:3.11-slim AS builder
+
 WORKDIR /build
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc libpq-dev \
+    gcc \
+    libpq-dev \
     && rm -rf /var/lib/apt/lists/*
+
 COPY requirements.txt .
 RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 
 
 FROM python:3.11-slim
+
 WORKDIR /app
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libpq5 curl \
+    libpq5 \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 RUN useradd --create-home --shell /bin/bash appuser
@@ -25,9 +32,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 COPY --chown=appuser:appuser . .
 USER appuser
 
-# EXPOSE 8000 (COMMENTED OUT FOR RAILWAY)
-# NO EXPOSE - Railway sets PORT dynamically
-# NO HEALTHCHECK in Dockerfile - Railway does its own healthcheck
+EXPOSE 8080
 
-# Use $PORT from Railway environment
-CMD alembic upgrade head && uvicorn api:app --host 0.0.0.0 --port $PORT --workers 2
+# Start API only - migrations removed for debugging
+CMD ["sh", "-c", "uvicorn api:app --host 0.0.0.0 --port ${PORT:-8080} --workers 2"]
