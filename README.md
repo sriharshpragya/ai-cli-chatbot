@@ -7,6 +7,7 @@
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791)
 ![Redis](https://img.shields.io/badge/Redis-7-DC382D)
 ![Docker](https://img.shields.io/badge/Docker-Multi--stage-2496ED)
+[![Live](https://img.shields.io/badge/status-live-success)](https://ai-cli-chatbot-production.up.railway.app)
 
 Built as a hands-on exploration of modern AI infrastructure patterns — applying production engineering principles (authentication, rate limiting, streaming, persistence) to a domain I was curious about.
 
@@ -14,7 +15,10 @@ Single codebase, dual interfaces — like Stripe's `stripe listen` CLI + Stripe 
 
 ## Features
 
+
+
 ### Interactive CLI Mode
+
 - **Multiple personas** (general, ruby, python, sql, code-review)
 - **Smart model routing** — automatically picks the right model based on question complexity
 - **Streaming responses** — see AI think in real-time
@@ -23,7 +27,10 @@ Single codebase, dual interfaces — like Stripe's `stripe listen` CLI + Stripe 
 - **Session save/load** — resume conversations later
 - **Command system** (`/mode`, `/save`, `/cost`, `/help`)
 
+
+
 ### Production REST API Mode
+
 - **Authentication** via API keys (bcrypt-hashed with prefix indexing)
 - **Rate limiting** with Redis-backed sliding window (multi-worker safe)
 - **Streaming** via Server-Sent Events (SSE)
@@ -32,13 +39,12 @@ Single codebase, dual interfaces — like Stripe's `stripe listen` CLI + Stripe 
 - **Auto-generated docs** at `/docs` (Swagger UI)
 - **Auto-deploy** from GitHub to Railway
 
+
+
 ## Architecture
 
-<p align="center">
-  <img src="architecture.svg" alt="Architecture Diagram" width="800"/>
-</p>
-
 **Shared modules** between CLI and API:
+
 - `router.py` — model selection logic based on question complexity
 - `prompt_registry.py` — mode-specific system prompts
 - `modes.py` — mode configurations
@@ -49,6 +55,8 @@ Single codebase, dual interfaces — like Stripe's `stripe listen` CLI + Stripe 
 Both interfaces call the same underlying logic — bug fixes and features stay in sync automatically.
 
 ## Two Ways to Use It
+
+
 
 ### 🖥️ CLI Mode (Great for developers)
 
@@ -75,6 +83,8 @@ You > /save my_ruby_session
 Saved to sessions/my_ruby_session.json
 ```
 
+
+
 ### 🌐 API Mode (For integration)
 
 ```bash
@@ -94,6 +104,7 @@ curl -X POST http://localhost:8000/chat \
 ```
 
 **Response:**
+
 ```json
 {
   "response": "Decorators are a way to modify functions...",
@@ -105,6 +116,8 @@ curl -X POST http://localhost:8000/chat \
   "calls_remaining_today": 998
 }
 ```
+
+
 
 ### 📡 Streaming API
 
@@ -119,13 +132,19 @@ Returns Server-Sent Events (SSE) — real-time streaming for chat UIs.
 
 ## API Endpoints
 
+
+
 ### Public
+
 - `GET /` — Health check
 - `GET /health` — Deep health check (verifies DB + Redis)
 - `GET /modes` — List available modes
 - `POST /register` — Create user account
 
+
+
 ### Authenticated (requires `X-API-Key`)
+
 - `GET /me` — Current user info
 - `POST /me/keys` — Generate API key
 - `GET /me/keys` — List your API keys
@@ -134,6 +153,8 @@ Returns Server-Sent Events (SSE) — real-time streaming for chat UIs.
 - `POST /chat/stream` — Streaming chat
 - `GET /conversations` — List your conversations
 - `GET /conversations/{id}` — Get full conversation history
+
+
 
 ## Tech Stack
 
@@ -148,12 +169,19 @@ Returns Server-Sent Events (SSE) — real-time streaming for chat UIs.
 - **Docker** — multi-stage builds for production
 - **Railway** — deployment platform
 
+
+
 ## Getting Started
 
+
+
 ### Prerequisites
+
 - Python 3.11+
 - Docker & Docker Compose
 - OpenRouter API key ([get one free](https://openrouter.ai))
+
+
 
 ### Setup
 
@@ -187,6 +215,8 @@ python main.py
 uvicorn api:app --reload
 ```
 
+
+
 ### Environment Variables
 
 ```bash
@@ -197,23 +227,48 @@ ENVIRONMENT=development                    # optional
 DEFAULT_MODEL=openai/gpt-4o-mini          # optional
 ```
 
+
+
 ## Production Deployment
 
-The API mode is deployed on Railway with:
-- **Auto-deploy** from `main` branch
-- **Managed** PostgreSQL and Redis
-- **HTTPS** with automatic SSL
-- **Health checks** for zero-downtime deploys
-- **Multi-stage Docker build** for minimal image size
+**🌐 Live API:** [https://ai-cli-chatbot-production.up.railway.app/](https://ai-cli-chatbot-production.up.railway.app/) 
+**📖 Interactive Docs:** [https://ai-cli-chatbot-production.up.railway.app/docs](https://ai-cli-chatbot-production.up.railway.app/docs)  
+**❤️ Health Check:** [https://ai-cli-chatbot-production.up.railway.app/health](https://ai-cli-chatbot-production.up.railway.app/health)
 
-Deployment configuration in `Dockerfile` and `railway.json`.
+Deployed on Railway with production-grade infrastructure:
+
+- **Auto-deploy** from `main` branch via GitHub webhooks
+- **Managed PostgreSQL 16** for durable storage
+- **Managed Redis 7** for cache and rate limiting
+- **HTTPS** with automatic SSL certificate management
+- **Health checks** for zero-downtime deploys
+- **Wait-for-database logic** for proper startup ordering
+- **Multi-stage Docker build** (~200MB image, no dev tools in production)
+- **Non-root container user** for security
+- **Version-pinned dependencies** for reproducible builds
+- **Automatic Alembic migrations** on deploy
+
+Try it live: register an account, generate an API key, chat with the AI.
+
+### Try It
+
+```bash
+# Register (replace with your details)
+curl -X POST https://YOUR-DOMAIN.up.railway.app/register \
+  -H "Content-Type: application/json" \
+  -d '{"username":"tester","email":"test@example.com","password":"secure123"}'
+```
+
+Deployment configuration lives in `Dockerfile`, `railway.json`, and `wait_for_db.py`.
 
 ## Engineering Decisions
 
 While the domain is AI, the engineering patterns are what interested me. Key decisions:
 
 ### Why dual CLI + API?
+
 Different use cases need different interfaces. Developers want CLI for quick iteration. Frontends need API. Sharing the same underlying modules means:
+
 - No duplicate business logic
 - Bug fixes affect both
 - Features stay in sync
@@ -222,19 +277,23 @@ Different use cases need different interfaces. Developers want CLI for quick ite
 This pattern is common in developer tools (Stripe CLI + API, GitHub CLI + API, AWS CLI + API).
 
 ### Why sliding window rate limiting?
+
 Fixed window rate limits fail at boundary conditions (attacker can 2× the limit by timing bursts around the reset). Sliding window uses timestamps in Redis sorted sets for accurate enforcement across any 60-second period.
 
 ### Why Redis for rate limits?
+
 In-memory counters break with multiple workers — each worker has its own state. Redis provides shared state, so `5/min` stays `5/min` regardless of worker count.
 
 Same problem exists in Rails multi-server deployments — I've hit it before with Sidekiq counters and solved it with Redis. The Python approach translates the same pattern.
 
 ### Why hash API keys?
+
 Bcrypt-hashed keys can't be recovered if the database is compromised. Combined with prefix indexing, we can efficiently find candidate keys then verify against the hash.
 
 Same principle as `has_secure_password` in Rails — never store plaintext credentials.
 
 ### Why async everywhere?
+
 LLM calls are I/O-bound (waiting on network). Async lets one worker handle hundreds of concurrent requests by interleaving them. Same worker serves 100x more users compared to sync equivalents.
 
 Rails uses different concurrency models (Puma threads, Sidekiq processes) — this project was a chance to learn async/await patterns applied to I/O-heavy workloads.
@@ -266,6 +325,8 @@ for i in {1..8}; do
 done
 ```
 
+
+
 ## What This Project Demonstrates
 
 - **API design** — RESTful endpoints, proper HTTP status codes, versioning, OpenAPI documentation
@@ -286,5 +347,7 @@ MIT
 
 **Pragya Sriharsh** — Senior Backend Engineer  
 10+ years building production systems: Ruby on Rails, Node.js, PostgreSQL, React, AWS  
+
 - [LinkedIn](https://linkedin.com/in/pragyasriharsh)
 - [GitHub](https://github.com/sriharshpragya)
+
