@@ -42,7 +42,7 @@ from database import crud
 from cache.redis_client import redis_client
 from cache.rate_limiter import RateLimiter
 from cache.session_cache import SessionCache
-from llm_client import create_chat_completion, create_streaming_completion
+from llm_client import create_chat_completion, create_streaming_completion, get_breaker_status
 
 # Logging
 logging.basicConfig(
@@ -630,3 +630,8 @@ async def get_me(user: User = Depends(get_current_user)):
         "tier": user.tier,
         "created_at": user.created_at,
     }
+
+@app.get("/health/breaker")
+async def circuit_breaker_status():
+    """Check LLM circuit breaker status."""
+    return get_breaker_status()
