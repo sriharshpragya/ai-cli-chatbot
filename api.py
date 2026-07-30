@@ -42,6 +42,7 @@ from database import crud
 from cache.redis_client import redis_client
 from cache.rate_limiter import RateLimiter
 from cache.session_cache import SessionCache
+from llm_client import create_chat_completion, create_streaming_completion
 
 # Logging
 logging.basicConfig(
@@ -88,10 +89,16 @@ api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 async def startup():
     logger.info(f"Starting {APP_TITLE} v{APP_VERSION}")
     if REDIS_ENABLED:
-        await redis_client.ping()
-        logger.info("✅ Redis connected")
+        try:
+            await redis_client.ping()
+            logger.info("✅ Redis connected")
+        except Exception as e:
+            # Don't crash local/dev startup when Redis isn't up yet
+            logger.error(f"⚠️ Redis ping failed (continuing): {e}")
     if DATABASE_ENABLED:
         logger.info("✅ Database configured")
+    else:
+        logger.warning("⚠️ DATABASE_URL not set — DB endpoints will fail")
 
 
 @app.on_event("shutdown")
@@ -169,6 +176,8 @@ class ChatRequest(BaseModel):
     max_tokens: int = Field(default=500, ge=10, le=4000)
 
 class ChatResponse(BaseModel):
+    model_config = {"protected_namespaces": ()}
+
     response: str
     conversation_id: str
     mode: str
@@ -456,7 +465,7 @@ async def chat(
     """
     model, conversation, messages = await _prepare_chat_request(db, user, body)
 
-    response = await llm_client.chat.completions.create(
+    response = await create_chat_completion(
         model=model,
         messages=messages,
         max_tokens=body.max_tokens,
@@ -507,7 +516,7 @@ async def chat_stream(
         try:
             yield f"data: {json.dumps({'type': 'start', 'model': model, 'mode': body.mode})}\n\n"
             
-            stream = await llm_client.chat.completions.create(
+            stream = await create_streaming_completion(
                 model=model,
                 messages=messages,
                 max_tokens=body.max_tokens,
