@@ -4,9 +4,7 @@
 # Shares database with the same underlying models
 # ============================================
 import os
-import time
 import uuid
-import logging
 from typing import AsyncGenerator, Optional
 from datetime import datetime
 
@@ -43,13 +41,13 @@ from cache.redis_client import redis_client
 from cache.rate_limiter import RateLimiter
 from cache.session_cache import SessionCache
 from llm_client import create_chat_completion, create_streaming_completion, get_breaker_status, get_providers_status
+from logging_config import configure_logging, get_logger
+from middleware import RequestLoggingMiddleware
+import structlog
 
-# Logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-)
-logger = logging.getLogger(__name__)
+# Configure logging
+configure_logging()
+logger = get_logger(__name__)
 
 # ============================================
 # APP INIT
@@ -60,12 +58,15 @@ app = FastAPI(
     description="Production AI chatbot API - shares codebase with CLI tool",
 )
 
+# Add request logging middleware
+app.add_middleware(RequestLoggingMiddleware)
+
 # CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_methods=["*"],
-    allow_headers=["*"],
+    allow_headers=["*"]
 )
 
 # LLM client (async for API mode)
@@ -87,46 +88,29 @@ api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 # ============================================
 @app.on_event("startup")
 async def startup():
-    logger.info(f"Starting {APP_TITLE} v{APP_VERSION}")
+    logger.info("app_starting", app=APP_TITLE, version=APP_VERSION)
     if REDIS_ENABLED:
         try:
             await redis_client.ping()
-            logger.info("✅ Redis connected")
+            logger.info("redis_connected")
         except Exception as e:
             # Don't crash local/dev startup when Redis isn't up yet
-            logger.error(f"⚠️ Redis ping failed (continuing): {e}")
+            logger.error(
+                "redis_ping_failed",
+                error_type=type(e).__name__,
+                error_message=str(e),
+            )
     if DATABASE_ENABLED:
-        logger.info("✅ Database configured")
+        logger.info("database_configured")
     else:
-        logger.warning("⚠️ DATABASE_URL not set — DB endpoints will fail")
+        logger.warning("database_not_configured")
 
 
 @app.on_event("shutdown")
 async def shutdown():
     if REDIS_ENABLED and redis_client:
         await redis_client.aclose()
-    logger.info("Shutdown complete")
-
-
-# ============================================
-# MIDDLEWARE - Request Tracing
-# ============================================
-@app.middleware("http")
-async def add_request_id(request: Request, call_next):
-    request_id = str(uuid.uuid4())[:8]
-    start = time.time()
-    logger.info(f"[{request_id}] {request.method} {request.url.path} - START")
-    
-    response = await call_next(request)
-    
-    duration_ms = (time.time() - start) * 1000
-    response.headers["X-Request-ID"] = request_id
-    response.headers["X-Response-Time"] = f"{duration_ms:.2f}ms"
-    logger.info(
-        f"[{request_id}] {request.method} {request.url.path} - "
-        f"{response.status_code} in {duration_ms:.2f}ms"
-    )
-    return response
+    logger.info("app_shutdown")
 
 
 # ============================================
@@ -458,52 +442,77 @@ async def chat(
     user: User = Depends(check_rate_limit),
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Chat endpoint - uses the SAME logic as your CLI:
-    - Same router.py for model selection
-    - Same modes.py for system prompts
-    - Same cost_tracker.py for cost calculations
-    """
-    model, conversation, messages = await _prepare_chat_request(db, user, body)
-
-    response, provider_used, model_used = await create_chat_completion(
-        model=model,
-        messages=messages,
+    """Chat endpoint with structured logging."""
+    
+    # Bind user context for all logs in this request
+    structlog.contextvars.bind_contextvars(
+        user_id=str(user.id),
+        mode=body.mode,
+    )
+    
+    logger.info(
+        "chat_request_received",
+        message_length=len(body.message),
         max_tokens=body.max_tokens,
     )
-    logger.info(f"Request served by: {provider_used} (model={model_used})")
-
-    content = response.choices[0].message.content
-    input_tokens = response.usage.prompt_tokens
-    output_tokens = response.usage.completion_tokens
-    cost = calculate_call_cost(model_used, input_tokens, output_tokens)
-
-    await crud.add_message(
-        db,
-        conversation_id=conversation.id,
-        role="assistant",
-        content=content,
-        model=model_used,
-        input_tokens=input_tokens,
-        output_tokens=output_tokens,
-        cost_usd=f"{cost:.6f}",
-    )
-
-    calls_today = await crud.count_calls_today(db, user.id)
-    keys = await crud.list_user_api_keys(db, user.id)
-    daily_limit = max((k.daily_limit for k in keys if k.is_active), default=100)
-
-    return ChatResponse(
-        response=content,
-        conversation_id=str(conversation.id),
-        mode=body.mode,
-        model_used=model_used,
-        provider_used=provider_used,
-        tokens=input_tokens + output_tokens,
-        cost_usd=f"${cost:.6f}",
-        calls_remaining_today=daily_limit - calls_today,
-    )
-
+    
+    model, conversation, messages = await _prepare_chat_request(db, user, body)
+    
+    try:
+        response, provider_used, model_used = await create_chat_completion(
+            model=model,
+            messages=messages,
+            max_tokens=body.max_tokens,
+        )
+        
+        content = response.choices[0].message.content
+        input_tokens = response.usage.prompt_tokens
+        output_tokens = response.usage.completion_tokens
+        cost = calculate_call_cost(model_used, input_tokens, output_tokens)
+        
+        logger.info(
+            "chat_response_generated",
+            provider=provider_used,
+            model=model_used,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            total_tokens=input_tokens + output_tokens,
+            cost_usd=cost,
+        )
+        
+        await crud.add_message(
+            db,
+            conversation_id=conversation.id,
+            role="assistant",
+            content=content,
+            model=model_used,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            cost_usd=f"{cost:.6f}",
+        )
+        
+        calls_today = await crud.count_calls_today(db, user.id)
+        keys = await crud.list_user_api_keys(db, user.id)
+        daily_limit = max((k.daily_limit for k in keys if k.is_active), default=100)
+        
+        return ChatResponse(
+            response=content,
+            conversation_id=str(conversation.id),
+            mode=body.mode,
+            model_used=model_used,
+            provider_used=provider_used,
+            tokens=input_tokens + output_tokens,
+            cost_usd=f"${cost:.6f}",
+            calls_remaining_today=daily_limit - calls_today,
+        )
+    
+    except Exception as e:
+        logger.error(
+            "chat_request_failed",
+            error_type=type(e).__name__,
+            error_message=str(e),
+        )
+        raise
 
 @app.post("/chat/stream")
 async def chat_stream(
@@ -513,7 +522,17 @@ async def chat_stream(
     db: AsyncSession = Depends(get_db),
 ):
     """Streaming chat endpoint."""
+    structlog.contextvars.bind_contextvars(
+        user_id=str(user.id),
+        mode=body.mode,
+    )
     model, conversation, messages = await _prepare_chat_request(db, user, body)
+
+    logger.info(
+        "chat_stream_request_received",
+        message_length=len(body.message),
+        max_tokens=body.max_tokens,
+    )
     
     async def event_stream() -> AsyncGenerator[str, None]:
         try:
@@ -531,7 +550,12 @@ async def chat_stream(
             async for chunk in stream:
                 # Check for disconnect on the HTTP request, not the body model
                 if await http_request.is_disconnected():
-                    logger.info("Client disconnected during stream")
+                    logger.info(
+                        "chat_stream_client_disconnected",
+                        provider=provider_used,
+                        model=model_used,
+                        chunks_sent=chunk_count,
+                    )
                     return
                 
                 if chunk.choices[0].delta.content:
@@ -549,6 +573,13 @@ async def chat_stream(
                 content=full_content,
                 model=model_used,
             )
+
+            logger.info(
+                "chat_stream_completed",
+                provider=provider_used,
+                model=model_used,
+                total_chunks=chunk_count,
+            )
             
             done_event = {
                 "type": "done",
@@ -560,7 +591,11 @@ async def chat_stream(
             yield f"data: {json.dumps(done_event)}\n\n"
             
         except Exception as e:
-            logger.error(f"Streaming error: {e}")
+            logger.error(
+                "chat_stream_failed",
+                error_type=type(e).__name__,
+                error_message=str(e),
+            )
             error_event = {"type": "error", "message": str(e)[:200]}
             yield f"data: {json.dumps(error_event)}\n\n"
     

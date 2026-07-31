@@ -2,7 +2,6 @@
 # LLM Client with Full Resilience
 # Retry + Circuit Breaker + Multi-Provider Fallback
 # ============================================
-import logging
 import time
 import os
 from enum import Enum
@@ -19,14 +18,13 @@ from tenacity import (
     stop_after_attempt,
     wait_exponential_jitter,
     retry_if_exception_type,
-    before_sleep_log,
 )
 import aiobreaker
 from datetime import timedelta
 from config import OPENROUTER_API_KEY
+from logging_config import get_logger
 
-logger = logging.getLogger(__name__)
-
+logger = get_logger(__name__)
 
 RETRIABLE_EXCEPTIONS = (
     RateLimitError,
@@ -86,7 +84,10 @@ class LLMProvider:
         """Check if this provider should be tried."""
         if self.status == ProviderStatus.UNHEALTHY:
             if self.last_failure_time and time.time() - self.last_failure_time >= self.recovery_timeout:
-                logger.info(f"{self.name}: recovery timeout elapsed")
+                logger.info(
+                    "provider_recovery_timeout_elapsed",
+                    provider=self.name,
+                )
                 self.status = ProviderStatus.DEGRADED
                 return True
             return False
@@ -97,7 +98,7 @@ class LLMProvider:
         self.status = ProviderStatus.HEALTHY
         self.failure_count = 0
         if was_degraded:
-            logger.info(f"{self.name}: RECOVERED, marked HEALTHY")
+            logger.info("provider_recovered", provider=self.name)
     
     def record_failure(self):
         self.failure_count += 1
@@ -106,11 +107,19 @@ class LLMProvider:
         if self.failure_count >= self.failure_threshold:
             self.status = ProviderStatus.UNHEALTHY
             logger.warning(
-                f"{self.name}: UNHEALTHY after {self.failure_count} failures. "
-                f"Recovery in {self.recovery_timeout}s"
+                "provider_unhealthy",
+                provider=self.name,
+                failure_count=self.failure_count,
+                recovery_timeout_s=self.recovery_timeout,
             )
         else:
             self.status = ProviderStatus.DEGRADED
+            logger.warning(
+                "provider_degraded",
+                provider=self.name,
+                failure_count=self.failure_count,
+                failure_threshold=self.failure_threshold,
+            )
     
     def status_dict(self) -> dict:
         """Combined status: health + circuit breaker."""
@@ -165,7 +174,11 @@ def _create_providers() -> list[LLMProvider]:
         raise ValueError("No LLM providers configured")
     
     providers.sort(key=lambda p: p.priority)
-    logger.info(f"Initialized providers: {[p.name for p in providers]}")
+    logger.info(
+        "providers_initialized",
+        providers=[p.name for p in providers],
+        count=len(providers),
+    )
     return providers
 
 
@@ -174,11 +187,22 @@ PROVIDERS = _create_providers()
 
 # ====== CALL WITH RETRY (per provider) ======
 
+def _before_sleep_log(retry_state):
+    exc = retry_state.outcome.exception() if retry_state.outcome else None
+    logger.warning(
+        "provider_retry",
+        attempt=retry_state.attempt_number,
+        error_type=type(exc).__name__ if exc else None,
+        error_message=str(exc) if exc else None,
+        wait_s=getattr(retry_state.next_action, "sleep", None),
+    )
+
+
 @retry(
     stop=stop_after_attempt(3),
     wait=wait_exponential_jitter(initial=1, max=10, jitter=2),
     retry=retry_if_exception_type(RETRIABLE_EXCEPTIONS),
-    before_sleep=before_sleep_log(logger, logging.WARNING),
+    before_sleep=_before_sleep_log,
     reraise=True,
 )
 async def _call_provider_with_retry(provider: LLMProvider, **kwargs):
@@ -205,7 +229,7 @@ async def create_chat_completion(**kwargs):
     1. Circuit breaker per provider (Day 20)
     2. Retry per provider (Day 19)
     3. Fallback to next provider (Day 21)
-
+    
     Returns: (response, provider_name, model_used)
     """
     last_error = None
@@ -214,44 +238,67 @@ async def create_chat_completion(**kwargs):
     for provider in PROVIDERS:
         # Skip unhealthy providers
         if not provider.is_available():
-            logger.debug(f"Skipping {provider.name} (unhealthy)")
+            logger.debug("provider_skipped", provider=provider.name, reason="unhealthy")
             continue
         
         attempted.append(provider.name)
         
         try:
-            # Wrap the call with circuit breaker
             async def call():
+                logger.info("provider_attempt", provider=provider.name)
                 return await _call_provider_with_retry(provider, **kwargs)
             
-            # Circuit breaker wraps retry
             response, model_used = await provider.breaker.call_async(call)
+            usage = getattr(response, "usage", None)
+            
+            logger.info(
+                "provider_success",
+                provider=provider.name,
+                model=model_used,
+                tokens=usage.total_tokens if usage else None,
+            )
             
             provider.record_success()
-            logger.info(f"✅ Success from {provider.name} (model={model_used})")
             return response, provider.name, model_used
         
         except aiobreaker.CircuitBreakerError:
-            logger.warning(f"{provider.name}: circuit OPEN, skipping")
+            logger.warning("provider_circuit_open", provider=provider.name)
             provider.record_failure()
             continue
         
         except AuthenticationError as e:
-            logger.error(f"{provider.name}: AuthenticationError - check credentials")
+            logger.error("provider_auth_error", provider=provider.name)
             provider.record_failure()
             last_error = e
             continue
         
         except Exception as e:
-            logger.warning(f"{provider.name}: failed with {type(e).__name__}")
+            logger.warning(
+                "provider_failed",
+                provider=provider.name,
+                error_type=type(e).__name__,
+                error_message=str(e),
+            )
             provider.record_failure()
             last_error = e
             continue
     
+    # No providers available at all
     if not attempted:
+        logger.error("all_providers_unavailable")
         raise Exception("All providers currently unavailable")
     
-    raise Exception(f"All providers failed. Attempted: {attempted}. Last: {type(last_error).__name__}: {last_error}")
+    # All attempted providers failed
+    logger.error(
+        "all_providers_failed",
+        attempted=attempted,
+        last_error_type=type(last_error).__name__,
+        last_error=str(last_error) if last_error else None,
+    )
+    raise Exception(
+        f"All providers failed. Attempted: {attempted}. "
+        f"Last: {type(last_error).__name__}: {last_error}"
+    )
 
 
 # ====== STREAMING ======
@@ -260,6 +307,7 @@ async def create_streaming_completion(**kwargs):
     """Streaming with fallback. Returns: (stream, provider_name, model_used)."""
     for provider in PROVIDERS:
         if not provider.is_available():
+            logger.debug("provider_skipped", provider=provider.name, reason="unhealthy")
             continue
         
         try:
@@ -272,17 +320,30 @@ async def create_streaming_completion(**kwargs):
             call_kwargs = {**kwargs, "model": model, "stream": True}
             
             async def call():
+                logger.info("provider_stream_attempt", provider=provider.name, model=model)
                 return await provider.client.chat.completions.create(**call_kwargs)
             
             stream = await provider.breaker.call_async(call)
             provider.record_success()
+            logger.info("provider_stream_success", provider=provider.name, model=model)
             return stream, provider.name, model
         
+        except aiobreaker.CircuitBreakerError:
+            logger.warning("provider_circuit_open", provider=provider.name)
+            provider.record_failure()
+            continue
+        
         except Exception as e:
-            logger.warning(f"{provider.name} streaming failed: {type(e).__name__}")
+            logger.warning(
+                "provider_stream_failed",
+                provider=provider.name,
+                error_type=type(e).__name__,
+                error_message=str(e),
+            )
             provider.record_failure()
             continue
     
+    logger.error("all_providers_failed", mode="streaming")
     raise Exception("All providers failed for streaming")
 
 
