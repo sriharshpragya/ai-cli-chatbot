@@ -42,7 +42,7 @@ from database import crud
 from cache.redis_client import redis_client
 from cache.rate_limiter import RateLimiter
 from cache.session_cache import SessionCache
-from llm_client import create_chat_completion, create_streaming_completion, get_breaker_status
+from llm_client import create_chat_completion, create_streaming_completion, get_breaker_status, get_providers_status
 
 # Logging
 logging.basicConfig(
@@ -182,6 +182,7 @@ class ChatResponse(BaseModel):
     conversation_id: str
     mode: str
     model_used: str
+    provider_used: str = "openrouter"
     tokens: int
     cost_usd: str
     calls_remaining_today: int
@@ -465,23 +466,24 @@ async def chat(
     """
     model, conversation, messages = await _prepare_chat_request(db, user, body)
 
-    response = await create_chat_completion(
+    response, provider_used, model_used = await create_chat_completion(
         model=model,
         messages=messages,
         max_tokens=body.max_tokens,
     )
+    logger.info(f"Request served by: {provider_used} (model={model_used})")
 
     content = response.choices[0].message.content
     input_tokens = response.usage.prompt_tokens
     output_tokens = response.usage.completion_tokens
-    cost = calculate_call_cost(model, input_tokens, output_tokens)
+    cost = calculate_call_cost(model_used, input_tokens, output_tokens)
 
     await crud.add_message(
         db,
         conversation_id=conversation.id,
         role="assistant",
         content=content,
-        model=model,
+        model=model_used,
         input_tokens=input_tokens,
         output_tokens=output_tokens,
         cost_usd=f"{cost:.6f}",
@@ -495,7 +497,8 @@ async def chat(
         response=content,
         conversation_id=str(conversation.id),
         mode=body.mode,
-        model_used=model,
+        model_used=model_used,
+        provider_used=provider_used,
         tokens=input_tokens + output_tokens,
         cost_usd=f"${cost:.6f}",
         calls_remaining_today=daily_limit - calls_today,
@@ -514,14 +517,13 @@ async def chat_stream(
     
     async def event_stream() -> AsyncGenerator[str, None]:
         try:
-            yield f"data: {json.dumps({'type': 'start', 'model': model, 'mode': body.mode})}\n\n"
-            
-            stream = await create_streaming_completion(
+            stream, provider_used, model_used = await create_streaming_completion(
                 model=model,
                 messages=messages,
                 max_tokens=body.max_tokens,
-                stream=True,
             )
+
+            yield f"data: {json.dumps({'type': 'start', 'model': model_used, 'provider': provider_used, 'mode': body.mode})}\n\n"
             
             full_content = ""
             chunk_count = 0
@@ -545,12 +547,14 @@ async def chat_stream(
                 conversation_id=conversation.id,
                 role="assistant",
                 content=full_content,
-                model=model,
+                model=model_used,
             )
             
             done_event = {
                 "type": "done",
                 "conversation_id": str(conversation.id),
+                "provider": provider_used,
+                "model": model_used,
                 "total_chunks": chunk_count,
             }
             yield f"data: {json.dumps(done_event)}\n\n"
@@ -635,3 +639,9 @@ async def get_me(user: User = Depends(get_current_user)):
 async def circuit_breaker_status():
     """Check LLM circuit breaker status."""
     return get_breaker_status()
+
+@app.get("/health/providers")
+async def providers_status():
+    """Check status of all LLM providers."""
+
+    return get_providers_status()
