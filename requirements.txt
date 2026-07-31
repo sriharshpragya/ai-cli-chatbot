@@ -28,3 +28,4 @@ email-validator==2.2.0
 tenacity==8.5.0
 aiobreaker==1.2.0
 structlog==24.4.0
+prometheus-client==0.20.0

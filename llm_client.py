@@ -23,6 +23,12 @@ import aiobreaker
 from datetime import timedelta
 from config import OPENROUTER_API_KEY
 from logging_config import get_logger
+from metrics import (
+    update_provider_health,
+    update_circuit_breaker_state,
+    track_fallback,
+    track_llm_call,
+)
 
 logger = get_logger(__name__)
 
@@ -99,6 +105,7 @@ class LLMProvider:
         self.failure_count = 0
         if was_degraded:
             logger.info("provider_recovered", provider=self.name)
+        update_provider_health(self.name, ProviderStatus.HEALTHY)
     
     def record_failure(self):
         self.failure_count += 1
@@ -120,6 +127,11 @@ class LLMProvider:
                 failure_count=self.failure_count,
                 failure_threshold=self.failure_threshold,
             )
+        
+        if self.status == ProviderStatus.UNHEALTHY:
+            update_provider_health(self.name, ProviderStatus.UNHEALTHY)
+        else:
+            update_provider_health(self.name, ProviderStatus.DEGRADED)
     
     def status_dict(self) -> dict:
         """Combined status: health + circuit breaker."""
@@ -225,15 +237,19 @@ async def _call_provider_with_retry(provider: LLMProvider, **kwargs):
 
 async def create_chat_completion(**kwargs):
     """
-    Full resilience stack:
+    Full resilience stack with metrics:
     1. Circuit breaker per provider (Day 20)
     2. Retry per provider (Day 19)
     3. Fallback to next provider (Day 21)
+    4. Metrics tracking (Day 23)
     
     Returns: (response, provider_name, model_used)
     """
     last_error = None
     attempted = []
+    previous_provider = None
+    previous_provider_reason = None
+    requested_model = kwargs.get('model', 'unknown')
     
     for provider in PROVIDERS:
         # Skip unhealthy providers
@@ -242,48 +258,105 @@ async def create_chat_completion(**kwargs):
             continue
         
         attempted.append(provider.name)
+        provider_start_time = time.time()
         
         try:
             async def call():
                 logger.info("provider_attempt", provider=provider.name)
                 return await _call_provider_with_retry(provider, **kwargs)
             
+            # Circuit breaker wraps retry - returns (response, model_used)
             response, model_used = await provider.breaker.call_async(call)
-            usage = getattr(response, "usage", None)
+            provider_duration = time.time() - provider_start_time
             
+            # Track fallback if we came from a failed provider
+            if previous_provider:
+                track_fallback(
+                    from_provider=previous_provider,
+                    to_provider=provider.name,
+                    reason=previous_provider_reason or "unknown",
+                )
+            
+            # Log success
+            usage = getattr(response, "usage", None)
             logger.info(
                 "provider_success",
                 provider=provider.name,
                 model=model_used,
                 tokens=usage.total_tokens if usage else None,
+                duration_ms=round(provider_duration * 1000, 2),
             )
             
             provider.record_success()
             return response, provider.name, model_used
         
         except aiobreaker.CircuitBreakerError:
+            provider_duration = time.time() - provider_start_time
             logger.warning("provider_circuit_open", provider=provider.name)
             provider.record_failure()
+            
+            # Track failed attempt
+            track_llm_call(
+                provider=provider.name,
+                model=requested_model,
+                input_tokens=0,
+                output_tokens=0,
+                cost=0,
+                duration=provider_duration,
+                success=False,
+            )
+            
+            previous_provider = provider.name
+            previous_provider_reason = "circuit_open"
             continue
         
         except AuthenticationError as e:
+            provider_duration = time.time() - provider_start_time
             logger.error("provider_auth_error", provider=provider.name)
             provider.record_failure()
+            
+            track_llm_call(
+                provider=provider.name,
+                model=requested_model,
+                input_tokens=0,
+                output_tokens=0,
+                cost=0,
+                duration=provider_duration,
+                success=False,
+            )
+            
+            previous_provider = provider.name
+            previous_provider_reason = "auth_error"
             last_error = e
             continue
         
         except Exception as e:
+            provider_duration = time.time() - provider_start_time
             logger.warning(
                 "provider_failed",
                 provider=provider.name,
                 error_type=type(e).__name__,
                 error_message=str(e),
+                duration_ms=round(provider_duration * 1000, 2),
             )
             provider.record_failure()
+            
+            track_llm_call(
+                provider=provider.name,
+                model=requested_model,
+                input_tokens=0,
+                output_tokens=0,
+                cost=0,
+                duration=provider_duration,
+                success=False,
+            )
+            
+            previous_provider = provider.name
+            previous_provider_reason = type(e).__name__
             last_error = e
             continue
     
-    # No providers available at all
+    # No providers were available
     if not attempted:
         logger.error("all_providers_unavailable")
         raise Exception("All providers currently unavailable")
@@ -299,7 +372,6 @@ async def create_chat_completion(**kwargs):
         f"All providers failed. Attempted: {attempted}. "
         f"Last: {type(last_error).__name__}: {last_error}"
     )
-
 
 # ====== STREAMING ======
 

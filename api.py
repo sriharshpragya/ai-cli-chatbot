@@ -4,12 +4,13 @@
 # Shares database with the same underlying models
 # ============================================
 import os
+import time
 import uuid
 from typing import AsyncGenerator, Optional
 from datetime import datetime
 
 from fastapi import FastAPI, HTTPException, Depends, Request
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse, Response
 from fastapi.security import APIKeyHeader
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, EmailStr
@@ -44,6 +45,7 @@ from llm_client import create_chat_completion, create_streaming_completion, get_
 from logging_config import configure_logging, get_logger
 from middleware import RequestLoggingMiddleware
 import structlog
+from metrics import get_metrics_text, track_chat_request, track_llm_call
 
 # Configure logging
 configure_logging()
@@ -442,9 +444,9 @@ async def chat(
     user: User = Depends(check_rate_limit),
     db: AsyncSession = Depends(get_db),
 ):
-    """Chat endpoint with structured logging."""
+    """Chat endpoint with structured logging and metrics."""
     
-    # Bind user context for all logs in this request
+    # Bind user context
     structlog.contextvars.bind_contextvars(
         user_id=str(user.id),
         mode=body.mode,
@@ -456,7 +458,13 @@ async def chat(
         max_tokens=body.max_tokens,
     )
     
+    # Track chat request (business metric)
+    user_tier = getattr(user, 'tier', 'free')
+    track_chat_request(mode=body.mode, user_tier=user_tier)
+    
     model, conversation, messages = await _prepare_chat_request(db, user, body)
+    
+    start_time = time.time()
     
     try:
         response, provider_used, model_used = await create_chat_completion(
@@ -464,12 +472,28 @@ async def chat(
             messages=messages,
             max_tokens=body.max_tokens,
         )
+        duration = time.time() - start_time
         
+        # Extract usage info FIRST
         content = response.choices[0].message.content
         input_tokens = response.usage.prompt_tokens
         output_tokens = response.usage.completion_tokens
+        
+        # Calculate cost
         cost = calculate_call_cost(model_used, input_tokens, output_tokens)
         
+        # NOW track the LLM call metrics
+        track_llm_call(
+            provider=provider_used,
+            model=model_used,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            cost=cost,
+            duration=duration,
+            success=True,
+        )
+        
+        # Log the event
         logger.info(
             "chat_response_generated",
             provider=provider_used,
@@ -480,6 +504,7 @@ async def chat(
             cost_usd=cost,
         )
         
+        # Persist to database
         await crud.add_message(
             db,
             conversation_id=conversation.id,
@@ -491,6 +516,7 @@ async def chat(
             cost_usd=f"{cost:.6f}",
         )
         
+        # Calculate remaining calls
         calls_today = await crud.count_calls_today(db, user.id)
         keys = await crud.list_user_api_keys(db, user.id)
         daily_limit = max((k.daily_limit for k in keys if k.is_active), default=100)
@@ -507,6 +533,7 @@ async def chat(
         )
     
     except Exception as e:
+        # Track failed request (Note: individual provider failures are tracked in create_chat_completion)
         logger.error(
             "chat_request_failed",
             error_type=type(e).__name__,
@@ -680,3 +707,13 @@ async def providers_status():
     """Check status of all LLM providers."""
 
     return get_providers_status()
+
+@app.get("/metrics")
+async def prometheus_metrics():
+    """Expose metrics for Prometheus scraping.
+    
+    Not authenticated - typical practice for internal monitoring.
+    Consider IP allowlist in production.
+    """
+    metrics_text, content_type = get_metrics_text()
+    return Response(content=metrics_text, media_type=content_type)

@@ -8,15 +8,31 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from logging_config import get_logger
 import structlog
+from metrics import (
+    http_requests_total,
+    http_request_duration_seconds,
+    http_requests_in_progress,
+)
 
 logger = get_logger(__name__)
-
 
 class RequestLoggingMiddleware(BaseHTTPMiddleware):
     """Log every HTTP request with unique request ID."""
     
     async def dispatch(self, request: Request, call_next):
-        # Extract or generate request ID
+        # Skip metrics endpoint (avoid self-monitoring)
+        if request.url.path == "/metrics":
+            return await call_next(request)
+        
+        # Skip health checks (too noisy for metrics too)
+        skip_paths = ["/health", "/health/breaker", "/health/providers"]
+        if request.url.path in skip_paths:
+            return await call_next(request)
+        
+        method = request.method
+        endpoint = request.url.path
+
+        # Extract or generate reques{t} ID
         request_id = request.headers.get("X-Request-ID") or f"req_{uuid.uuid4().hex[:12]}"
         
         # Skip logging for health checks (too noisy)
@@ -47,8 +63,11 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
             user_agent=request.headers.get("user-agent", "unknown")[:100],
         )
         
-        # Process request with timing
+        # Track in-progress
+        http_requests_in_progress.labels(method=method, endpoint=endpoint).inc()
+        # Process request with timing and track metrics
         start_time = time.time()
+        status_code = "500"  # Default in case of exception
         
         try:
             response = await call_next(request)
@@ -78,4 +97,17 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
             )
             raise
         finally:
+            # Record metrics regardless of success/failure
+            duration = time.time() - start_time
+            
+            http_request_duration_seconds.labels(
+                method=method, endpoint=endpoint
+            ).observe(duration)
+            
+            http_requests_total.labels(
+                method=method, endpoint=endpoint, status_code=status_code
+            ).inc()
+            
+            http_requests_in_progress.labels(method=method, endpoint=endpoint).dec()
+            
             structlog.contextvars.clear_contextvars()
