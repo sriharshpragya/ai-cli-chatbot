@@ -16,6 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, EmailStr
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, text
+from budget import global_budget, BudgetStatus
 import json
 
 # Async OpenAI for API mode
@@ -457,7 +458,21 @@ async def chat(
         message_length=len(body.message),
         max_tokens=body.max_tokens,
     )
-    
+
+
+    # Check global budget BEFORE processing
+    can_spend, budget_reason = await global_budget.can_spend(estimated_cost=0.001)
+    if not can_spend:
+        logger.warning("budget_blocked_request", reason=budget_reason)
+        raise HTTPException(
+            status_code=402,  # 402 Payment Required
+            detail={
+                "error": "budget_exceeded",
+                "message": "Service temporarily unavailable due to budget limits",
+                "retry_after": "Try again after budget period resets",
+            }
+        )
+
     # Track chat request (business metric)
     user_tier = getattr(user, 'tier', 'free')
     track_chat_request(mode=body.mode, user_tier=user_tier)
@@ -478,10 +493,13 @@ async def chat(
         content = response.choices[0].message.content
         input_tokens = response.usage.prompt_tokens
         output_tokens = response.usage.completion_tokens
-        
+
         # Calculate cost
         cost = calculate_call_cost(model_used, input_tokens, output_tokens)
         
+        # Record spending
+        await global_budget.record_spending(cost, provider=provider_used, model=model_used)
+
         # NOW track the LLM call metrics
         track_llm_call(
             provider=provider_used,
@@ -717,3 +735,8 @@ async def prometheus_metrics():
     """
     metrics_text, content_type = get_metrics_text()
     return Response(content=metrics_text, media_type=content_type)
+
+@app.get("/health/budget")
+async def budget_status():
+    """Check current budget status."""
+    return await global_budget.status_dict()
