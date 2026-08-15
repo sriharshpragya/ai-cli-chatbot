@@ -9,7 +9,9 @@ from storage import save_conversation, load_conversation, list_conversations
 from cost_tracker import CostTracker
 from router import get_model_for_question, explain_routing, MODELS
 from prompt_registry import PromptManager
-from config import OPENROUTER_API_KEY, DEFAULT_MODEL
+from config import OPENROUTER_API_KEY, DEFAULT_MODEL, DEFAULT_MODEL, AGENT_ENABLED, AGENT_MAX_ITERATIONS, AGENT_DEFAULT_MODEL
+import argparse
+import asyncio
 
 load_dotenv()
 
@@ -169,6 +171,144 @@ class ChatSession:
             self.messages = [system] + recent
             return trimmed_count
         return 0
+
+# ============================================
+# AGENT MODE (uses tools + resilient LLM client)
+# ============================================
+
+async def run_agent_mode():
+    """Interactive CLI for the AI agent with tool-use capabilities."""
+    from agent import Agent
+    from tools import register_all_tools
+    
+    if not AGENT_ENABLED:
+        print("❌ Agent mode is disabled. Set AGENT_ENABLED=true in .env")
+        return
+    
+    # Initialize agent
+    agent = Agent(
+        model=AGENT_DEFAULT_MODEL,
+        system_prompt=(
+            "You are a helpful personal assistant with access to various tools "
+            "including weather, calculator, GitHub, file reading, and URL fetching. "
+            "Use tools when appropriate to help the user. Be concise and helpful."
+        ),
+        max_iterations=AGENT_MAX_ITERATIONS,
+    )
+    
+    # Register all available tools
+    register_all_tools(agent)
+    
+    # Welcome banner
+    print("\n" + "=" * 60)
+    print("🤖 AI PERSONAL ASSISTANT AGENT")
+    print("=" * 60)
+    print(f"Model: {agent.model}")
+    print(f"Available tools: {len(agent.tools_registry)}")
+    print(f"Max iterations: {agent.max_iterations}")
+    print()
+    print("Commands:")
+    print("  quit, exit  - Exit the agent")
+    print("  /tools      - List available tools")
+    print("  /reset      - Clear conversation history")
+    print("  /history    - Show conversation history")
+    print("  /help       - Show this help")
+    print("=" * 60)
+    print("\nAsk me anything! I can check weather, do math, search GitHub, and more.\n")
+    
+    while True:
+        try:
+            user_input = input("💬 You: ").strip()
+        except (KeyboardInterrupt, EOFError):
+            print("\n\n👋 Goodbye!")
+            break
+        
+        if not user_input:
+            continue
+        
+        # Exit commands
+        if user_input.lower() in ('quit', 'exit', '/quit', '/exit'):
+            print("\n👋 Goodbye!")
+            break
+        
+        # Help command
+        if user_input.lower() in ('/help', 'help'):
+            print("\n📖 Commands:")
+            print("  quit, exit  - Exit the agent")
+            print("  /tools      - List available tools")
+            print("  /reset      - Clear conversation history")
+            print("  /history    - Show conversation history")
+            print("  /help       - Show this help")
+            print()
+            continue
+        
+        # List tools
+        if user_input.lower() == '/tools':
+            print(f"\n🔧 Available Tools ({len(agent.tools_registry)}):")
+            for name in agent.get_tool_names():
+                schema = agent.tools_registry[name]["schema"]
+                desc = schema["function"]["description"]
+                # Truncate long descriptions
+                if len(desc) > 80:
+                    desc = desc[:80] + "..."
+                print(f"  • {name}: {desc}")
+            print()
+            continue
+        
+        # Reset conversation
+        if user_input.lower() == '/reset':
+            agent.reset_conversation()
+            print("\n♻️  Conversation reset\n")
+            continue
+        
+        # Show history
+        if user_input.lower() == '/history':
+            history = agent.get_conversation_history()
+            print(f"\n📜 Conversation history ({len(history)} messages):")
+            for i, msg in enumerate(history):
+                role = msg.get("role", "unknown")
+                content = msg.get("content", "")
+                if content and len(content) > 80:
+                    content = content[:80] + "..."
+                marker = "[tool_call]" if not content and msg.get("tool_calls") else content
+                print(f"  [{i}] {role}: {marker}")
+            print()
+            continue
+        
+        # Send to agent
+        print("\n🤖 Thinking...", end="", flush=True)
+        
+        try:
+            result = await agent.run(user_input)
+            
+            # Clear "Thinking..." line
+            print("\r" + " " * 20 + "\r", end="")
+            
+            # Show tools used and stats
+            if result.get("tools_used"):
+                tools_str = ", ".join(result["tools_used"])
+                print(f"🔧 Tools used: {tools_str}")
+                print(
+                    f"📊 Iterations: {result.get('iterations')} | "
+                    f"Tokens: {result.get('total_tokens')} | "
+                    f"Provider: {result.get('provider_used')} | "
+                    f"Duration: {result.get('duration_ms'):.0f}ms"
+                )
+                print()
+            
+            # Show response
+            print(f"🤖 Agent: {result['response']}\n")
+            
+            # Show error if any
+            if result.get("error"):
+                print(f"⚠️  Note: {result['error']}\n")
+        
+        except KeyboardInterrupt:
+            print("\n\n⚠️  Interrupted. Continuing...\n")
+            continue
+        
+        except Exception as e:
+            print(f"\n❌ Error: {type(e).__name__}: {e}\n")
 
 def print_header():
     print("\n" + "=" * 55)
@@ -396,4 +536,19 @@ def main():
         print()
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(
+        description="AI CLI Chatbot - Chat mode or Agent mode with tools"
+    )
+    parser.add_argument(
+        "--agent",
+        action="store_true",
+        help="Run in agent mode with tool-use capabilities"
+    )
+    args = parser.parse_args()
+    
+    if args.agent:
+        # Agent mode with tools
+        asyncio.run(run_agent_mode())
+    else:
+        # Existing chat mode (unchanged)
+        main()

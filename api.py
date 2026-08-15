@@ -47,6 +47,10 @@ from logging_config import configure_logging, get_logger
 from middleware import RequestLoggingMiddleware
 import structlog
 from metrics import get_metrics_text, track_chat_request, track_llm_call
+# Agent imports
+from agent import Agent
+from tools import register_all_tools, get_available_tool_names, get_all_tools
+from config import AGENT_ENABLED, AGENT_MAX_ITERATIONS, AGENT_DEFAULT_MODEL, GITHUB_ENABLED
 
 # Configure logging
 configure_logging()
@@ -174,6 +178,54 @@ class ChatResponse(BaseModel):
     cost_usd: str
     calls_remaining_today: int
 
+# ============================================
+# AGENT MODELS
+# ============================================
+class AgentRequest(BaseModel):
+    query: str = Field(..., min_length=1, max_length=4000, description="What you want the agent to do")
+    system_prompt: Optional[str] = Field(
+        default=None,
+        description="Optional custom system prompt for this session",
+        max_length=2000,
+    )
+    max_iterations: Optional[int] = Field(
+        default=None,
+        ge=1,
+        le=20,
+        description="Max agent iterations (default from config)",
+    )
+    max_tokens: int = Field(default=1000, ge=100, le=4000)
+
+
+class AgentResponse(BaseModel):
+    model_config = {"protected_namespaces": ()}
+    
+    response: str
+    tools_used: list[str] = []
+    iterations: int
+    total_tokens: int = 0
+    provider_used: Optional[str] = None
+    model_used: Optional[str] = None
+    duration_ms: float
+    error: Optional[str] = None
+
+
+class ToolInfo(BaseModel):
+    name: str
+    description: str
+
+
+class ToolsResponse(BaseModel):
+    total: int
+    tools: list[ToolInfo]
+
+
+class AgentHealthResponse(BaseModel):
+    status: str
+    agent_enabled: bool
+    tools_available: int
+    github_enabled: bool
+    max_iterations: int
 
 # ============================================
 # AUTH DEPENDENCY
@@ -654,6 +706,121 @@ async def chat_stream(
         },
     )
 
+# ============================================
+# AGENT ENDPOINTS
+# ============================================
+
+@app.post("/agent", response_model=AgentResponse)
+async def agent_chat(
+    request: AgentRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Send a query to the AI agent.
+    
+    The agent has access to multiple tools including weather, calculator,
+    GitHub (if configured), file reading, and URL fetching. It will use
+    tools automatically to answer your query.
+    """
+    if not AGENT_ENABLED:
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "error": "agent_disabled",
+                "message": "Agent feature is currently disabled"
+            }
+        )
+    
+    # Budget check
+    budget_status = await global_budget.check_status()
+    if budget_status == BudgetStatus.EXCEEDED:
+        raise HTTPException(
+            status_code=402,
+            detail={
+                "error": "budget_exhausted",
+                "message": "Daily budget exhausted. Try again tomorrow."
+            }
+        )
+    
+    logger.info(
+        "agent_request_received",
+        user_id=str(current_user.id),
+        query_length=len(request.query),
+    )
+    
+    try:
+        # Create agent for this request
+        agent = Agent(
+            model=AGENT_DEFAULT_MODEL,
+            system_prompt=request.system_prompt or (
+                "You are a helpful personal assistant with access to various tools. "
+                "Use tools when appropriate to answer the user's questions accurately. "
+                "Be concise and helpful."
+            ),
+            max_iterations=request.max_iterations or AGENT_MAX_ITERATIONS,
+            max_tokens=request.max_tokens,
+        )
+        
+        # Register all available tools
+        register_all_tools(agent)
+        
+        # Run the agent
+        result = await agent.run(request.query)
+        
+        logger.info(
+            "agent_request_completed",
+            user_id=str(current_user.id),
+            iterations=result.get("iterations"),
+            tools_used=result.get("tools_used"),
+            provider=result.get("provider_used"),
+        )
+        
+        return AgentResponse(**result)
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            "agent_request_failed",
+            user_id=str(current_user.id),
+            error_type=type(e).__name__,
+            error_message=str(e),
+        )
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": "agent_error",
+                "message": f"Agent failed: {type(e).__name__}: {str(e)}"
+            }
+        )
+
+@app.get("/agent/tools", response_model=ToolsResponse)
+async def list_agent_tools(
+    current_user: User = Depends(get_current_user),
+):
+    """
+    List all tools available to the agent.
+    """
+    if not AGENT_ENABLED:
+        raise HTTPException(
+            status_code=503,
+            detail={"error": "agent_disabled", "message": "Agent feature is disabled"}
+        )
+    
+    tools_data = get_all_tools()
+    tools_list = [
+        ToolInfo(
+            name=schema["function"]["name"],
+            description=schema["function"]["description"],
+        )
+        for schema, _ in tools_data
+    ]
+    
+    return ToolsResponse(
+        total=len(tools_list),
+        tools=tools_list,
+    )
 
 @app.get("/conversations")
 async def list_conversations(
@@ -740,3 +907,26 @@ async def prometheus_metrics():
 async def budget_status():
     """Check current budget status."""
     return await global_budget.status_dict()
+
+@app.get("/health/agent", response_model=AgentHealthResponse)
+async def agent_health():
+    """
+    Health check for agent system.
+    
+    Public endpoint - no auth required.
+    """
+    try:
+        tools_count = len(get_all_tools())
+        status = "healthy"
+    except Exception as e:
+        logger.error("agent_health_check_failed", error=str(e))
+        tools_count = 0
+        status = "unhealthy"
+    
+    return AgentHealthResponse(
+        status=status,
+        agent_enabled=AGENT_ENABLED,
+        tools_available=tools_count,
+        github_enabled=GITHUB_ENABLED,
+        max_iterations=AGENT_MAX_ITERATIONS,
+    )

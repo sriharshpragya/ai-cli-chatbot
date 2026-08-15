@@ -60,6 +60,15 @@ DEBUG = os.getenv("DEBUG", "false").lower() == "true"
 # ====== LLM defaults ======
 DEFAULT_MODEL = os.getenv("DEFAULT_MODEL", "openai/gpt-4o-mini")
 
+# ====== Agent settings ======
+AGENT_ENABLED = os.getenv("AGENT_ENABLED", "true").lower() == "true"
+AGENT_MAX_ITERATIONS = int(os.getenv("AGENT_MAX_ITERATIONS", "10"))
+AGENT_DEFAULT_MODEL = os.getenv("AGENT_DEFAULT_MODEL", DEFAULT_MODEL)
+
+# ====== GitHub integration ======
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "")
+GITHUB_ENABLED = bool(GITHUB_TOKEN)
+
 # ====== App metadata ======
 APP_VERSION = "3.0.0"
 APP_TITLE = "AI CLI Chatbot"
@@ -70,3 +79,5 @@ if ENVIRONMENT != "production":
     print(f"[CONFIG] Database: {'ENABLED' if DATABASE_ENABLED else 'DISABLED (CLI mode)'}")
     print(f"[CONFIG] Redis: {'ENABLED' if REDIS_ENABLED else 'DISABLED (CLI mode)'}")
     print(f"[CONFIG] Model: {DEFAULT_MODEL}")
+    print(f"[CONFIG] Agent: {'ENABLED' if AGENT_ENABLED else 'DISABLED'}")
+    print(f"[CONFIG] GitHub tools: {'ENABLED' if GITHUB_ENABLED else 'DISABLED'}")

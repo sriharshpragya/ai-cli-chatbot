@@ -33,3 +33,7 @@ prometheus-client==0.20.0
 # Testing
 pytest==9.1.1
 pytest-asyncio==1.4.0
+
+# Agent tools
+beautifulsoup4==4.12.3
+requests==2.32.3
